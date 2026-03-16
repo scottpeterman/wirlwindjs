@@ -1,0 +1,41 @@
+description: "Full interface statistics from show interfaces"
+fields:
+  name:
+    type: str
+    description: "Interface name (e.g. GigabitEthernet1)"
+  status:
+    type: str
+    description: "Link status (up, down, administratively down)"
+  protocol:
+    type: str
+    description: "Protocol status (up, down)"
+  input_rate_bps:
+    type: int
+    description: "5-minute input rate in bits/sec"
+  output_rate_bps:
+    type: int
+    description: "5-minute output rate in bits/sec"
+  in_errors:
+    type: int
+    description: "Input error count"
+  out_errors:
+    type: int
+    description: "Output error count"
+  crc_errors:
+    type: int
+    description: "CRC error count"
+  mtu:
+    type: int
+    description: "MTU in bytes"
+  bandwidth_kbps:
+    type: int
+    description: "Interface bandwidth in Kbps (parsed from NTC 'bandwidth' field)"
+  speed:
+    type: str
+    description: "Media speed (e.g. 1000Mbps)"
+  description:
+    type: str
+    description: "Interface description"
+  ip_address:
+    type: str
+    description: "IP address (if configured)"

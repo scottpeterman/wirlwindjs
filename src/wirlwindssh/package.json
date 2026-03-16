@@ -1,0 +1,39 @@
+{
+  "name": "whirlwind-ssh",
+  "version": "0.1.0",
+  "description": "Network device SSH automation for TypeScript/Node.js — ported from SCNG SSH Client",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "keywords": [
+    "ssh",
+    "network",
+    "automation",
+    "cisco",
+    "juniper",
+    "arista",
+    "electron",
+    "paramiko"
+  ],
+  "author": "Scott Peterman",
+  "license": "MIT",
+  "dependencies": {
+    "ssh2": "^1.16.0"
+  },
+  "devDependencies": {
+    "@types/ssh2": "^1.15.1",
+    "typescript": "^5.6.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ]
+}

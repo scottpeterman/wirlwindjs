@@ -1,0 +1,75 @@
+{
+  "name": "wirlwind-js",
+  "version": "0.1.0",
+  "description": "Network device telemetry dashboard — Electron/TypeScript port of Wirlwind",
+  "main": "dist/wirlwind/main/main.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "start": "npm run build && electron .",
+    "dev": "tsc && electron .",
+    "build:win": "npm run build && electron-builder --win",
+    "build:mac": "npm run build && electron-builder --mac",
+    "build:linux": "npm run build && electron-builder --linux"
+  },
+  "author": "Scott Peterman",
+  "license": "GPL-3.0",
+  "dependencies": {
+    "ssh2": "^1.16.0",
+    "js-yaml": "^4.1.0",
+    "electron-log": "^5.0.0",
+    "electron-store": "^8.2.0",
+    "better-sqlite3": "^12.8.0"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^3.7.2",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^20.11.0",
+    "@types/ssh2": "^1.15.0",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0",
+    "typescript": "^5.4.0"
+  },
+  "build": {
+    "appId": "com.scottpeterman.wirlwind",
+    "productName": "Wirlwind Telemetry",
+    "directories": {
+      "buildResources": "build",
+      "output": "release"
+    },
+    "extraResources": [
+      {
+        "from": "collections",
+        "to": "collections"
+      },
+      {
+        "from": "templates",
+        "to": "templates"
+      },
+      {
+        "from": "src/wirlwind/renderer",
+        "to": "renderer"
+      }
+    ],
+    "files": [
+      "dist/**/*",
+      "src/wirlwind/renderer/**/*",
+      "src/tfsmjs/**/*",
+      "node_modules/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ]
+    }
+  }
+}

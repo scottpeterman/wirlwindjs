@@ -1,0 +1,1818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wirlwind Telemetry</title>
+<!-- Bridge: window.wirlwind exposed via Electron preload/contextBridge -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=JetBrains+Mono:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   nterm-theme-sync.css
+
+   Drop this into wirlwind's <head> AFTER the existing <style> block,
+   or replace wirlwind's :root block with these values.
+
+   Aligns wirlwind's palette to nterm so they read as one tool
+   when rendered side-by-side in the desktop wrapper.
+
+   Source of truth: nterm/static/css/nterm.css
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Backgrounds (nterm palette) ─────────────────────── */
+  --bg-primary:       #0a0e14;    /* unchanged */
+  --bg-panel:         #0d1117;    /* was #111820 — nterm is darker */
+  --bg-panel-header:  #131820;    /* was #151d27 — matches nterm --bg-surface */
+  --bg-header-top:    #0d1117;    /* was #0f1822 — match --bg-panel */
+  --bg-modal:         #0d1117;    /* was #0d1218 — align to panel */
+  --bg-hover:         #1c2333;    /* was #0d1520 — matches nterm --bg-hover */
+
+  /* ── Borders ─────────────────────────────────────────── */
+  --border:           #1e2736;    /* was #1e2a38 */
+  --border-accent:    #2a3444;    /* was #2a3a4e — matches nterm --border-light */
+  --border-dim:       #1e273644;  /* was #1e2a3844 */
+
+  /* ── Text ────────────────────────────────────────────── */
+  --text-primary:     #d4dce8;    /* was #c8d6e5 — brighter to match nterm */
+  --text-secondary:   #6b7d96;    /* was #6b7d93 */
+  --text-dim:         #3d4f65;    /* was #3d4f63 */
+
+  /* ── Accent: Cyan → nterm teal ─────────────────────────
+       This is the biggest visual change. nterm uses a warm
+       teal #00d4aa everywhere; wirlwind used electric #00e5ff.
+       Aligning this makes the tools read as one product. */
+  --cyan:             #00d4aa;    /* was #00e5ff — nterm's signature teal */
+  --cyan-dim:         rgba(0,212,170,0.12);  /* was #00e5ff22 */
+  --cyan-border:      rgba(0,212,170,0.27);  /* was #00e5ff44 */
+  --cyan-area-start:  rgba(0,212,170,0.20);  /* was rgba(0,229,255,0.25) */
+  --cyan-area-end:    rgba(0,212,170,0);     /* was rgba(0,229,255,0) */
+
+
+  /* ── Accent: Green ───────────────────────────────────── */
+  --green:            #3fb950;    /* was #00e676 — nterm's softer green */
+  --green-dim:        rgba(63,185,80,0.12);  /* was #00e67633 */
+  --green-border:     rgba(63,185,80,0.27);  /* was #00e67644 */
+  --green-area-start: rgba(63,185,80,0.15);  /* was rgba(0,230,118,0.15) */
+  --green-area-end:   rgba(63,185,80,0);     /* was rgba(0,230,118,0) */
+
+  /* ── Accent: Red ─────────────────────────────────────── */
+  --red:              #f85149;    /* was #ff1744 — nterm's warmer red */
+  --red-dim:          rgba(248,81,73,0.12);  /* was #ff174433 */
+  --red-border:       rgba(248,81,73,0.27);  /* was #ff174444 */
+
+  /* ── Accent: Amber/Yellow ────────────────────────────── */
+  --amber:            #e3b341;    /* was #ffab00 — nterm's --yellow */
+  --amber-dim:        rgba(227,179,65,0.12); /* was #ffab0033 */
+  --amber-border:     rgba(227,179,65,0.27); /* was #ffab0044 */
+  --amber-area-start: rgba(227,179,65,0.12); /* was rgba(255,171,0,0.12) */
+  --amber-area-end:   rgba(227,179,65,0);    /* was rgba(255,171,0,0) */
+
+  /* ── Accent: Blue ────────────────────────────────────── */
+  --blue:             #58a6ff;    /* was #2979ff — nterm's softer blue */
+  --blue-dim:         rgba(88,166,255,0.12); /* was #2979ff33 */
+  --blue-border:      rgba(88,166,255,0.27); /* was #2979ff44 */
+
+  /* ── Accent: Purple ────────────────────────────────────
+       nterm uses --magenta #e872b0 but wirlwind's purple
+       is only used for outbound throughput lines. Keeping
+       it close but shifting slightly warmer. */
+  --purple:           #d68fff;    /* was #d500f9 — softer, less neon */
+  --purple-area-start: rgba(214,143,255,0.15); /* was rgba(213,0,249,0.2) */
+  --purple-area-end:  rgba(214,143,255,0);     /* was rgba(213,0,249,0) */
+
+  /* ── Typography — match nterm ────────────────────────── */
+  --font-mono:        'JetBrains Mono', 'Consolas', monospace;
+  /* Keep Orbitron for wirlwind headers — it's the telemetry identity */
+  --font-display:     'Orbitron', monospace;
+  --font-data:        'Share Tech Mono', monospace;
+
+  /* ── Chart line widths ───────────────────────────────── */
+  --chart-line-thin: 1.5;
+  --chart-line-normal: 2;
+
+  /* ── Gauge stops [fraction, color] ───────────────────── */
+  --gauge-ok-stop: 0.6;
+  --gauge-warn-stop: 0.8;
+
+  /* ── Theme-toggle effects ──────────────────────────── */
+  --glow-opacity: 1;
+  --scanline-display: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LIGHT THEME — [data-theme="light"] on <html>
+   ═══════════════════════════════════════════════════════════════ */
+[data-theme="light"] {
+  /* ── Backgrounds ─────────────────────────────────────── */
+  --bg-primary: #f0f2f5;
+  --bg-panel: #ffffff;
+  --bg-panel-header: #f7f8fa;
+  --bg-header-top: #e8ecf1;
+  --bg-modal: #ffffff;
+  --bg-hover: #eef1f6;
+
+  /* ── Borders ─────────────────────────────────────────── */
+  --border: #d4dae3;
+  --border-accent: #bcc5d1;
+  --border-dim: #d4dae366;
+
+  /* ── Text ────────────────────────────────────────────── */
+  --text-primary: #1a2332;
+  --text-secondary: #4a5568;
+  --text-dim: #8896a8;
+
+  /* ── Accent: Green ───────────────────────────────────── */
+  --green: #0d9f5f;
+  --green-dim: #0d9f5f18;
+  --green-border: #0d9f5f33;
+  --green-area-start: rgba(13,159,95,0.12);
+  --green-area-end: rgba(13,159,95,0);
+
+  /* ── Accent: Amber ───────────────────────────────────── */
+  --amber: #c47f00;
+  --amber-dim: #c47f0018;
+  --amber-border: #c47f0033;
+  --amber-area-start: rgba(196,127,0,0.10);
+  --amber-area-end: rgba(196,127,0,0);
+
+  /* ── Accent: Red ─────────────────────────────────────── */
+  --red: #d32f2f;
+  --red-dim: #d32f2f18;
+  --red-border: #d32f2f33;
+
+  /* ── Accent: Cyan ────────────────────────────────────── */
+  --cyan: #0288b3;
+  --cyan-dim: #0288b315;
+  --cyan-border: #0288b333;
+  --cyan-area-start: rgba(2,136,179,0.15);
+  --cyan-area-end: rgba(2,136,179,0);
+
+  /* ── Accent: Blue ────────────────────────────────────── */
+  --blue: #1565c0;
+  --blue-dim: #1565c018;
+  --blue-border: #1565c033;
+
+  /* ── Accent: Purple ──────────────────────────────────── */
+  --purple: #9c27b0;
+  --purple-area-start: rgba(156,39,176,0.12);
+  --purple-area-end: rgba(156,39,176,0);
+
+  /* ── Effects ─────────────────────────────────────────── */
+  --scanline: transparent;
+  --overlay-bg: rgba(0,0,0,0.4);
+  --modal-shadow: rgba(0,0,0,0.15);
+
+  /* ── Suppress dark-theme glows ─────────────────────── */
+  --glow-opacity: 0;
+  --scanline-display: none;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow-x: hidden;
+}
+/* ── Scrollbars (match nterm) ─────────────────────── */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--bg-panel); }
+::-webkit-scrollbar-thumb { background: var(--border-accent); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+::-webkit-scrollbar-corner { background: var(--bg-panel); }
+
+body::after {
+  content:''; position:fixed; top:0;left:0;right:0;bottom:0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, var(--scanline) 2px, var(--scanline) 4px);
+  pointer-events:none; z-index:9999;
+  display: var(--scanline-display, block);
+}
+
+/* Header */
+.header {
+  background: linear-gradient(180deg, var(--bg-header-top) 0%, var(--bg-primary) 100%);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  position: relative;
+}
+.header::after {
+  content:''; position:absolute; bottom:0;left:0;right:0; height:1px;
+  background: linear-gradient(90deg, transparent, var(--cyan), transparent); opacity:0.4;
+}
+.header-left { display:flex; align-items:center; gap:16px; }
+.logo-mark {
+  width:32px; height:32px; border:2px solid var(--cyan); border-radius:3px;
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--font-display); font-weight:900; font-size:12px;
+  color:var(--cyan); background:var(--cyan-dim);
+  text-shadow:0 0 10px var(--cyan); box-shadow:0 0 12px var(--cyan-dim);
+}
+.device-identity h1 {
+  font-family:var(--font-display); font-size:14px; font-weight:700;
+  color:var(--text-primary); letter-spacing:2px; text-transform:uppercase;
+}
+.device-identity .subtitle { font-size:10px; color:var(--text-secondary); letter-spacing:1px; margin-top:1px; }
+.header-meta { display:flex; gap:20px; align-items:center; }
+.meta-item { text-align:right; }
+.meta-label { font-size:9px; color:var(--text-dim); text-transform:uppercase; letter-spacing:1.5px; }
+.meta-value { font-size:11px; color:var(--text-secondary); font-weight:500; }
+.meta-value.status-up { color:var(--green); text-shadow:0 0 8px var(--green-dim); }
+.status-dot {
+  display:inline-block; width:6px; height:6px; background:var(--green);
+  border-radius:50%; margin-right:4px; box-shadow:0 0 6px var(--green);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+@keyframes pulse-dot { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+.live-clock { font-family:var(--font-data); font-size:11px; color:var(--cyan); text-shadow:0 0 8px var(--cyan-dim); }
+
+/* Info strip */
+.info-strip {
+  background:var(--bg-panel); border-bottom:1px solid var(--border);
+  padding:6px 16px; display:flex; gap:28px; font-size:11px; overflow-x:auto;
+}
+.info-chip { display:flex; align-items:center; gap:5px; white-space:nowrap; }
+.info-chip .label { color:var(--text-dim); text-transform:uppercase; font-size:9px; letter-spacing:1px; }
+.info-chip .value { color:var(--text-secondary); font-weight:500; }
+
+/* Grid */
+.dashboard { display:grid; grid-template-columns:1fr 1fr 1fr; gap:2px; padding:2px; background:var(--bg-primary); }
+.panel { background:var(--bg-panel); border:1px solid var(--border); overflow:hidden; position:relative; }
+.panel-header {
+  background:var(--bg-panel-header); padding:7px 12px;
+  display:flex; align-items:center; justify-content:space-between;
+  border-bottom:1px solid var(--border); position:relative;
+}
+.panel-header::before { content:''; position:absolute; left:0;top:0;bottom:0; width:3px; }
+.panel-header.green::before { background:var(--green); box-shadow:0 0 8px var(--green-dim); }
+.panel-header.amber::before { background:var(--amber); box-shadow:0 0 8px var(--amber-dim); }
+.panel-header.cyan::before { background:var(--cyan); box-shadow:0 0 8px var(--cyan-dim); }
+.panel-header.blue::before { background:var(--blue); box-shadow:0 0 8px var(--blue-dim); }
+.panel-header.red::before { background:var(--red); box-shadow:0 0 8px var(--red-dim); }
+.panel-header.purple::before { background:var(--purple); }
+.panel-title {
+  font-family:var(--font-display); font-size:9px; font-weight:600;
+  letter-spacing:2px; text-transform:uppercase; color:var(--text-secondary);
+}
+.panel-header-right { display:flex; align-items:center; gap:6px; }
+.panel-badge {
+  font-size:9px; padding:2px 7px; border-radius:2px; font-weight:600; letter-spacing:1px;
+}
+.badge-ok { background:var(--green-dim); color:var(--green); border:1px solid var(--green-border); }
+.badge-warn { background:var(--amber-dim); color:var(--amber); border:1px solid var(--amber-border); }
+.badge-crit { background:var(--red-dim); color:var(--red); border:1px solid var(--red-border); }
+.badge-none { background:var(--border-dim); color:var(--text-dim); border:1px solid var(--border); }
+.badge-error { background:var(--red-dim); color:var(--red); border:1px solid var(--red-border); font-size:8px; }
+.panel-body { padding:10px; min-height:200px; display:flex; align-items:center; justify-content:center; }
+.chart-container { width:100%; height:100%; min-height:200px; }
+.span-2 { grid-column:span 2; }
+.span-3 { grid-column:span 3; }
+.tall { min-height:310px; }
+.tall .panel-body { min-height:280px; }
+
+/* Hidden top-row panels */
+.panel-hidden { display: none !important; }
+
+/* JSON Debug button */
+.debug-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 2px;
+  cursor: pointer;
+  line-height: 1.3;
+  transition: all 0.15s ease;
+  opacity: 0.5;
+}
+.intf-select {
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-accent);
+  font-family: var(--font-data);
+  font-size: 10px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  cursor: pointer;
+  max-width: 180px;
+  outline: none;
+}
+.intf-select:hover { border-color: var(--cyan); color: var(--text-primary); }
+.intf-select:focus { border-color: var(--cyan); color: var(--text-primary); }
+.intf-select option { background: var(--bg-panel); color: var(--text-primary); }
+
+.debug-btn:hover {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  background: var(--cyan-dim);
+  opacity: 1;
+  text-shadow: 0 0 6px var(--cyan-dim);
+}
+.debug-btn.has-data {
+  opacity: 0.7;
+}
+.debug-btn.has-error {
+  border-color: var(--red);
+  color: var(--red);
+  opacity: 0.9;
+}
+
+/* JSON Debug Modal */
+.debug-modal-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--overlay-bg);
+  z-index: 10000;
+  justify-content: center;
+  align-items: center;
+  padding: 24px;
+}
+.debug-modal-overlay.visible {
+  display: flex;
+}
+.debug-modal {
+  background: var(--bg-modal);
+  border: 1px solid var(--border-accent);
+  border-radius: 4px;
+  max-width: 900px;
+  width: 100%;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 40px var(--modal-shadow), 0 0 1px var(--cyan);
+}
+.debug-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel-header);
+}
+.debug-modal-title {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--cyan);
+}
+.debug-modal-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.debug-parser-tag {
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 2px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  font-family: var(--font-data);
+}
+.parser-textfsm { background: var(--green-dim); color: var(--green); border: 1px solid var(--green-border); }
+.parser-ttp { background: var(--blue-dim); color: var(--blue); border: 1px solid var(--blue-border); }
+.parser-regex { background: var(--amber-dim); color: var(--amber); border: 1px solid var(--amber-border); }
+.parser-none { background: var(--red-dim); color: var(--red); border: 1px solid var(--red-border); }
+.debug-modal-actions { display:flex; gap:6px; }
+.debug-action-btn {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 3px 10px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.debug-action-btn:hover {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  background: var(--cyan-dim);
+}
+.debug-action-btn.copied {
+  border-color: var(--green);
+  color: var(--green);
+}
+.debug-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text-secondary);
+}
+.debug-modal-body::-webkit-scrollbar { width:6px; }
+.debug-modal-body::-webkit-scrollbar-track { background:var(--bg-modal); }
+.debug-modal-body::-webkit-scrollbar-thumb { background:var(--border-accent); border-radius:3px; }
+
+/* JSON syntax highlighting */
+.json-key { color: var(--cyan); }
+.json-string { color: var(--green); }
+.json-number { color: var(--amber); }
+.json-bool { color: var(--purple); }
+.json-null { color: var(--text-dim); }
+.json-meta-key { color: var(--red); }
+
+/* Tables */
+.data-table { width:100%; border-collapse:collapse; font-size:11px; }
+.data-table th {
+  text-align:left; padding:5px 8px; color:var(--text-dim); font-size:9px;
+  text-transform:uppercase; letter-spacing:1.5px; font-weight:600;
+  border-bottom:1px solid var(--border); background:var(--bg-panel-header);
+  position:sticky; top:0; z-index:1;
+}
+.data-table td { padding:4px 8px; border-bottom:1px solid var(--bg-panel); color:var(--text-secondary); font-family:var(--font-data); }
+.data-table tr:hover td { background:var(--bg-hover); }
+.intf-up { color:var(--green); }
+.intf-down { color:var(--red); }
+.intf-admin { color:var(--text-dim); }
+.intf-row-up td { border-left: 2px solid var(--green); }
+.intf-row-up td:first-child { color:var(--green); font-weight:600; }
+.intf-row-down td { border-left: 2px solid var(--red); }
+.intf-row-down td:first-child { color:var(--red); font-weight:600; }
+.intf-row-admin td { border-left: 2px solid var(--text-dim); }
+.intf-row-admin td:first-child { color:var(--text-dim); }
+.intf-status-dot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:5px; vertical-align:middle; }
+.intf-status-dot.up { background:var(--green); box-shadow:0 0 4px var(--green); }
+.intf-status-dot.down { background:var(--red); box-shadow:0 0 4px var(--red); }
+.intf-status-dot.admin { background:var(--text-dim); }
+.util-bar { height:4px; background:var(--border); border-radius:2px; overflow:hidden; min-width:50px; display:inline-block; vertical-align:middle; margin-right:4px; }
+.util-bar-fill { height:100%; border-radius:2px; }
+.util-low { background:var(--green); box-shadow:0 0 4px var(--green-dim); }
+.util-med { background:var(--amber); box-shadow:0 0 4px var(--amber-dim); }
+.util-high { background:var(--red); box-shadow:0 0 4px var(--red-dim); }
+.table-scroll { overflow-y:auto; width:100%; }
+.table-scroll::-webkit-scrollbar { width:4px; }
+.table-scroll::-webkit-scrollbar-track { background:var(--bg-panel); }
+.table-scroll::-webkit-scrollbar-thumb { background:var(--border-accent); border-radius:2px; }
+
+/* Log entries */
+.log-entry { padding:2px 8px; font-family:var(--font-data); font-size:11px; border-bottom:1px solid var(--bg-panel); }
+.log-entry:hover { background:var(--bg-hover); }
+.log-ts { color:var(--text-dim); margin-right:8px; }
+.log-sev-0,.log-sev-1,.log-sev-2 { color:var(--red); }
+.log-sev-3 { color:var(--red); }
+.log-sev-4 { color:var(--amber); }
+.log-sev-5 { color:var(--cyan); }
+.log-sev-6,.log-sev-7 { color:var(--text-dim); }
+.log-msg { color:var(--text-secondary); }
+
+/* ── Neighbor Tree Map ──────────────────────────────────────── */
+.neighbor-map-svg {
+  display: block;
+  width: 100%;
+}
+.neighbor-map-svg text {
+  font-family: var(--font-data);
+}
+.neighbor-map-svg .node-icon {
+  fill: var(--bg-panel);
+  stroke-width: 2;
+}
+.neighbor-map-svg .node-icon.root {
+  fill: var(--bg-primary);
+  stroke: var(--cyan);
+  stroke-width: 2.5;
+}
+.neighbor-map-svg .node-icon.router { stroke: var(--cyan); }
+.neighbor-map-svg .node-icon.switch { stroke: var(--green); }
+.neighbor-map-svg .node-icon.other  { stroke: var(--amber); }
+.neighbor-map-svg .node-name {
+  fill: var(--text-primary);
+  font-size: 10px;
+  font-weight: 600;
+}
+.neighbor-map-svg .node-name.root {
+  fill: var(--cyan);
+  font-size: 11px;
+  font-weight: 700;
+}
+.neighbor-map-svg .node-detail {
+  fill: var(--text-dim);
+  font-size: 9px;
+}
+.neighbor-map-svg .edge-line {
+  fill: none;
+  stroke: var(--border-accent);
+  stroke-width: 1.5;
+}
+.neighbor-map-svg .edge-label {
+  fill: var(--text-secondary);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+/* Waiting state */
+.waiting {
+  color:var(--text-dim); font-family:var(--font-data);
+  font-size:11px; text-align:center;
+}
+.waiting .spinner {
+  display:inline-block; width:16px; height:16px; border:2px solid var(--border-accent);
+  border-top-color:var(--cyan); border-radius:50%; animation:spin 1s linear infinite;
+  margin-bottom:6px;
+}
+@keyframes spin { to{transform:rotate(360deg);} }
+
+/* No-data state (replaces spinner after timeout) */
+.no-data {
+  color:var(--text-dim); font-family:var(--font-data);
+  font-size:11px; text-align:center;
+}
+
+@media (max-width:1200px) { .dashboard{grid-template-columns:1fr 1fr;} .span-3{grid-column:span 2;} }
+@media (max-width:768px) { .dashboard{grid-template-columns:1fr;} .span-2,.span-3{grid-column:span 1;} }
+
+/* ── Light theme: suppress glows & adapt components ────────── */
+[data-theme="light"] .logo-mark {
+  text-shadow: none; box-shadow: none;
+}
+[data-theme="light"] .header::after { opacity: 0.15; }
+[data-theme="light"] .status-dot { box-shadow: none; }
+[data-theme="light"] .meta-value.status-up { text-shadow: none; }
+[data-theme="light"] .live-clock { text-shadow: none; }
+[data-theme="light"] .panel-header::before { box-shadow: none; }
+[data-theme="light"] .intf-status-dot.up,
+[data-theme="light"] .intf-status-dot.down { box-shadow: none; }
+[data-theme="light"] .util-low,
+[data-theme="light"] .util-med,
+[data-theme="light"] .util-high { box-shadow: none; }
+[data-theme="light"] .debug-btn:hover { text-shadow: none; }
+[data-theme="light"] .zoom-btn:hover { text-shadow: none; }
+[data-theme="light"] .debug-modal { box-shadow: 0 8px 30px var(--modal-shadow); }
+
+/* ── Theme toggle button ───────────────────────────────────── */
+.theme-toggle {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-accent);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  width: 30px; height: 30px;
+  border-radius: 3px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s ease;
+  margin-right: 12px;
+  line-height: 1;
+}
+.theme-toggle:hover {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  background: var(--cyan-dim);
+}
+
+/* ── Zoom controls ──────────────────────────────────────────── */
+.zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-right: 12px;
+}
+.zoom-btn {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-accent);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  width: 24px; height: 24px;
+  border-radius: 2px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s ease;
+  line-height: 1;
+  padding: 0;
+}
+.zoom-btn:hover {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  background: var(--cyan-dim);
+}
+.zoom-label {
+  font-family: var(--font-data);
+  font-size: 9px;
+  color: var(--text-dim);
+  min-width: 32px;
+  text-align: center;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+}
+.zoom-label:hover { color: var(--text-secondary); }
+
+/* ── Smooth theme transition ──────────────────────────────── */
+body,
+.header, .info-strip, .panel, .panel-header,
+.debug-modal, .debug-modal-header, .debug-modal-body,
+.logo-mark, .meta-value, .live-clock,
+.data-table th, .data-table td, .log-entry,
+.theme-toggle, .debug-btn, .debug-action-btn, .intf-select, .zoom-btn {
+  transition: background-color 0.25s ease, color 0.2s ease,
+              border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* ── Light theme scrollbars ───────────────────────────────── */
+[data-theme="light"] .table-scroll::-webkit-scrollbar-track,
+[data-theme="light"] .debug-modal-body::-webkit-scrollbar-track { background: var(--bg-panel); }
+[data-theme="light"] .table-scroll::-webkit-scrollbar-thumb,
+[data-theme="light"] .debug-modal-body::-webkit-scrollbar-thumb { background: var(--border); }
+
+/* ── Light theme select options ───────────────────────────── */
+[data-theme="light"] .intf-select option { background: var(--bg-panel); color: var(--text-primary); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo-mark">WT</div>
+    <div class="device-identity">
+      <h1 id="deviceHostname">Waiting for connection...</h1>
+      <div class="subtitle" id="deviceSubtitle">—</div>
+    </div>
+  </div>
+  <div class="header-meta">
+    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle light/dark theme">☀</button>
+    <div class="zoom-controls">
+      <button class="zoom-btn" onclick="zoomOut()" title="Zoom out (Ctrl−)">−</button>
+      <span class="zoom-label" id="zoomLabel" onclick="zoomReset()" title="Click to reset zoom">100%</span>
+      <button class="zoom-btn" onclick="zoomIn()" title="Zoom in (Ctrl+)">+</button>
+    </div>
+    <div class="meta-item">
+      <div class="meta-label">Status</div>
+      <div class="meta-value" id="connStatus"><span class="status-dot" id="statusDot" style="background:var(--amber)"></span>CONNECTING</div>
+    </div>
+    <div class="meta-item">
+      <div class="meta-label">Last Poll</div>
+      <div class="meta-value live-clock" id="liveClock">--:--:--</div>
+    </div>
+    <div class="meta-item">
+      <div class="meta-label">Vendor</div>
+      <div class="meta-value" id="vendorLabel">—</div>
+    </div>
+  </div>
+</div>
+
+<div class="info-strip" id="infoStrip">
+  <div class="info-chip"><span class="label">Awaiting data...</span></div>
+</div>
+
+<div class="dashboard">
+  <!-- CPU Gauge -->
+  <div class="panel" data-collection="cpu" style="align-items:flex-start;padding:0;">
+    <div class="panel-header green">
+      <span class="panel-title">CPU Utilization</span>
+      <div class="panel-header-right">
+        <button class="debug-btn" onclick="showDebug('cpu')" title="Inspect parsed data">{ }</button>
+        <span class="panel-badge badge-none" id="cpuBadge">—</span>
+      </div>
+    </div>
+    <div class="panel-body"><div class="chart-container" id="cpuGauge"></div></div>
+  </div>
+
+  <!-- Memory Gauge — FIX: was class="panel panel" -->
+  <div class="panel" data-collection="memory" style="align-items:flex-start;padding:0;">
+    <div class="panel-header amber">
+      <span class="panel-title">Memory Utilization</span>
+      <div class="panel-header-right">
+        <button class="debug-btn" onclick="showDebug('memory')" title="Inspect parsed data">{ }</button>
+        <span class="panel-badge badge-none" id="memBadge">—</span>
+      </div>
+    </div>
+    <div class="panel-body"><div class="chart-container" id="memGauge"></div></div>
+  </div>
+
+  <!-- Device Info -->
+  <div class="panel" data-collection="device_info" style="align-items:flex-start;padding:0;">
+    <div class="panel-header cyan">
+      <span class="panel-title">Device Information</span>
+      <div class="panel-header-right">
+        <button class="debug-btn" onclick="showDebug('device_info')" title="Inspect parsed data">{ }</button>
+      </div>
+    </div>
+    <div class="panel-body" style="align-items:flex-start;padding:0;width:100%;">
+      <div class="table-scroll" style="max-height:200px;width:100%;" id="deviceInfoContainer">
+        <div class="waiting"><div class="spinner"></div><br>Waiting for data</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Throughput -->
+  <div class="panel span-2 tall" data-collection="interface_detail">
+    <div class="panel-header blue">
+      <span class="panel-title">Interface Throughput</span>
+      <div class="panel-header-right">
+        <select id="intfSelect" class="intf-select" onchange="renderThroughputChart()" title="Filter by interface">
+          <option value="__aggregate__">All Interfaces</option>
+        </select>
+        <button class="debug-btn" onclick="showDebug('interface_detail')" title="Inspect parsed data">{ }</button>
+        <span class="panel-badge badge-none" id="thruBadge">—</span>
+      </div>
+    </div>
+    <div class="panel-body"><div class="chart-container" id="throughputChart"></div></div>
+  </div>
+
+  <!-- Neighbors -->
+  <div class="panel tall" data-collection="neighbors">
+    <div class="panel-header cyan">
+      <span class="panel-title">LLDP / CDP Neighbors</span>
+      <div class="panel-header-right">
+        <span class="panel-badge badge-none" id="neighborBadge">—</span>
+        <button class="debug-btn" onclick="showDebug('neighbors')" title="Inspect parsed data">{ }</button>
+      </div>
+    </div>
+    <div class="panel-body" style="align-items:flex-start;padding:0;">
+      <div class="table-scroll" style="max-height:280px;width:100%;" id="neighborMapContainer">
+        <div class="waiting"><div class="spinner"></div><br>Waiting for data</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CPU/Memory Trend (hidden) -->
+  <div class="panel panel-hidden span-2 tall" data-collection="history">
+    <div class="panel-header purple">
+      <span class="panel-title">CPU &amp; Memory Trend</span>
+      <div class="panel-header-right">
+        <button class="debug-btn" onclick="showDebug('_history')" title="Inspect history buffer">{ }</button>
+      </div>
+    </div>
+    <div class="panel-body"><div class="chart-container" id="historyChart"></div></div>
+  </div>
+
+  <!-- Interface Table -->
+  <div class="panel span-3" data-collection="interfaces">
+    <div class="panel-header blue">
+      <span class="panel-title">Interface Description</span>
+      <div class="panel-header-right">
+        <button class="debug-btn" onclick="showDebug('interfaces')" title="Inspect parsed data">{ }</button>
+        <span class="panel-badge badge-none" id="intfBadge">—</span>
+      </div>
+    </div>
+    <div class="panel-body" style="align-items:flex-start;padding:0;">
+      <div class="table-scroll" style="max-height:260px;width:100%;" id="intfContainer">
+        <div class="waiting"><div class="spinner"></div><br>Waiting for data</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Log View -->
+  <div class="panel span-3 tall" data-collection="log">
+    <div class="panel-header red">
+      <span class="panel-title">Device Log</span>
+      <div class="panel-header-right">
+        <button class="debug-btn" onclick="showDebug('log')" title="Inspect parsed data">{ }</button>
+        <span class="panel-badge badge-none" id="logBadge">—</span>
+      </div>
+    </div>
+    <div class="panel-body" style="align-items:flex-start;padding:0;">
+      <div class="table-scroll" style="max-height:280px;" id="logContainer">
+        <div class="waiting"><div class="spinner"></div><br>Waiting for data</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     JSON DEBUG MODAL
+     ═══════════════════════════════════════════════════════════════════ -->
+<div class="debug-modal-overlay" id="debugOverlay">
+  <div class="debug-modal">
+    <div class="debug-modal-header">
+      <span class="debug-modal-title" id="debugTitle">—</span>
+      <div class="debug-modal-meta">
+        <span class="debug-parser-tag" id="debugParserTag" style="display:none"></span>
+        <span class="debug-parser-tag" id="debugTemplateTag" style="display:none"></span>
+        <div class="debug-modal-actions">
+          <button class="debug-action-btn" id="debugCopyBtn" onclick="copyDebugJSON()">Copy</button>
+          <button class="debug-action-btn" onclick="closeDebug()">Close</button>
+        </div>
+      </div>
+    </div>
+    <div class="debug-modal-body" id="debugBody">No data</div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════
+// WIRLWIND TELEMETRY DASHBOARD
+// ══════════════════════════════════════════════════════════════════════
+
+const Theme = (() => {
+  let cache = {};
+
+  function get(prop) {
+    if (cache[prop] !== undefined) return cache[prop];
+    const val = getComputedStyle(document.documentElement).getPropertyValue(prop).trim();
+    cache[prop] = val;
+    return val;
+  }
+
+  function refresh() {
+    cache = {};
+    const t = Theme;
+    Object.keys(t).forEach(k => {
+      if (typeof t[k] === 'string') delete t[k];
+    });
+    populate();
+    if (typeof reinitChartsTheme === 'function') reinitChartsTheme();
+  }
+
+  function populate() {
+    Theme.bgPrimary      = get('--bg-primary');
+    Theme.bgPanel        = get('--bg-panel');
+    Theme.bgPanelHeader  = get('--bg-panel-header');
+    Theme.bgHeaderTop    = get('--bg-header-top');
+    Theme.bgModal        = get('--bg-modal');
+    Theme.bgHover        = get('--bg-hover');
+    Theme.border         = get('--border');
+    Theme.borderAccent   = get('--border-accent');
+    Theme.textPrimary    = get('--text-primary');
+    Theme.textSecondary  = get('--text-secondary');
+    Theme.textDim        = get('--text-dim');
+    Theme.green          = get('--green');
+    Theme.greenDim       = get('--green-dim');
+    Theme.greenAreaStart = get('--green-area-start');
+    Theme.greenAreaEnd   = get('--green-area-end');
+    Theme.amber          = get('--amber');
+    Theme.amberDim       = get('--amber-dim');
+    Theme.amberAreaStart = get('--amber-area-start');
+    Theme.amberAreaEnd   = get('--amber-area-end');
+    Theme.red            = get('--red');
+    Theme.redDim         = get('--red-dim');
+    Theme.cyan           = get('--cyan');
+    Theme.cyanDim        = get('--cyan-dim');
+    Theme.cyanAreaStart  = get('--cyan-area-start');
+    Theme.cyanAreaEnd    = get('--cyan-area-end');
+    Theme.blue           = get('--blue');
+    Theme.blueDim        = get('--blue-dim');
+    Theme.purple         = get('--purple');
+    Theme.purpleAreaStart = get('--purple-area-start');
+    Theme.purpleAreaEnd  = get('--purple-area-end');
+    Theme.fontDisplay    = get('--font-display');
+    Theme.fontMono       = get('--font-mono');
+    Theme.fontData       = get('--font-data');
+  }
+
+  return {
+    get, refresh, populate,
+    apply(vars) {
+      const root = document.documentElement;
+      Object.entries(vars).forEach(([k, v]) => root.style.setProperty(k, v));
+      this.refresh();
+    },
+    setTheme(name) { applyTheme(name); }
+  };
+})();
+
+// ── Theme toggle ──────────────────────────────────────────────────────
+function toggleTheme() {
+  const html = document.documentElement;
+  const current = html.getAttribute('data-theme');
+  const next = current === 'light' ? 'dark' : 'light';
+  applyTheme(next);
+}
+
+function applyTheme(themeName) {
+  const html = document.documentElement;
+  if (themeName === 'light') {
+    html.setAttribute('data-theme', 'light');
+  } else {
+    html.removeAttribute('data-theme');
+  }
+  const btn = document.getElementById('themeToggle');
+  if (btn) btn.textContent = themeName === 'light' ? '☾' : '☀';
+  Theme.refresh();
+  try { localStorage.setItem('wt-theme', themeName); } catch(e) {}
+}
+
+function loadSavedTheme() {
+  try {
+    const saved = localStorage.getItem('wt-theme');
+    if (saved === 'light') applyTheme('light');
+  } catch(e) {}
+}
+
+// ── Zoom controls ────────────────────────────────────────────────────
+const ZOOM_MIN = 0.5;
+const ZOOM_MAX = 2.0;
+const ZOOM_STEP = 0.1;
+let currentZoom = 1.0;
+
+function applyZoom(level) {
+  currentZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.round(level * 10) / 10));
+  document.body.style.zoom = currentZoom;
+  const label = document.getElementById('zoomLabel');
+  if (label) label.textContent = Math.round(currentZoom * 100) + '%';
+  setTimeout(function() {
+    Object.values(charts).forEach(function(c) { try { c.resize(); } catch(e) {} });
+  }, 100);
+  try { localStorage.setItem('wt-zoom', String(currentZoom)); } catch(e) {}
+}
+
+function zoomIn()  { applyZoom(currentZoom + ZOOM_STEP); }
+function zoomOut() { applyZoom(currentZoom - ZOOM_STEP); }
+function zoomReset() { applyZoom(1.0); }
+
+function loadSavedZoom() {
+  try {
+    const saved = localStorage.getItem('wt-zoom');
+    if (saved) {
+      const val = parseFloat(saved);
+      if (!isNaN(val) && val >= ZOOM_MIN && val <= ZOOM_MAX) {
+        applyZoom(val);
+        return;
+      }
+    }
+  } catch(e) {}
+  const label = document.getElementById('zoomLabel');
+  if (label) label.textContent = '100%';
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.ctrlKey || e.metaKey) {
+    if (e.key === '=' || e.key === '+') { e.preventDefault(); zoomIn(); }
+    else if (e.key === '-') { e.preventDefault(); zoomOut(); }
+    else if (e.key === '0') { e.preventDefault(); zoomReset(); }
+  }
+});
+
+let bridge = null;
+const charts = {};
+const throughputHistory = {
+  timestamps: [],
+  perInterface: {}
+};
+const THROUGHPUT_MAX = 72;
+const knownInterfaces = new Set();
+
+function bridgeCall(method) {
+  var args = Array.prototype.slice.call(arguments, 1);
+  try {
+    var result = method.apply(bridge, args);
+    if (result && typeof result.then === 'function') return result;
+    return Promise.resolve(result);
+  } catch(e) {
+    return Promise.reject(e);
+  }
+}
+
+const collectionCache = {};
+const panelPollCount = {};
+const SPINNER_TIMEOUT_CYCLES = 3;
+let totalCycles = 0;
+
+// ── Chart initialization ───────────────────────────────────────────
+
+function initCharts() {
+  const cpuEl = document.getElementById('cpuGauge');
+  const memEl = document.getElementById('memGauge');
+  if (cpuEl && cpuEl.offsetParent !== null) {
+    charts.cpu = echarts.init(cpuEl);
+    charts.cpu.setOption(gaugeOption(0, '—'));
+  }
+  if (memEl && memEl.offsetParent !== null) {
+    charts.mem = echarts.init(memEl);
+    charts.mem.setOption(gaugeOption(0, '—'));
+  }
+
+  charts.throughput = echarts.init(document.getElementById('throughputChart'));
+
+  const histEl = document.getElementById('historyChart');
+  if (histEl && histEl.offsetParent !== null) {
+    charts.history = echarts.init(histEl);
+  }
+
+  charts.throughput.setOption(areaChartOption([], [], [], 'Mbps'));
+
+  if (charts.history) {
+    charts.history.setOption({
+    tooltip: { trigger:'axis', backgroundColor:Theme.bgPanelHeader, borderColor:Theme.borderAccent, textStyle:{color:Theme.textPrimary,fontFamily:Theme.fontData,fontSize:11} },
+    legend: { data:['CPU %','Memory %'], textStyle:{color:Theme.textSecondary,fontFamily:Theme.fontData,fontSize:10}, top:5, right:10 },
+    grid: { left:50, right:20, top:40, bottom:30 },
+    xAxis: { type:'category', data:[], axisLine:{lineStyle:{color:Theme.border}}, axisLabel:{color:Theme.textDim,fontFamily:Theme.fontData,fontSize:9}, splitLine:{show:false} },
+    yAxis: { type:'value', min:0, max:100, name:'%', nameTextStyle:{color:Theme.textDim,fontFamily:Theme.fontData,fontSize:9}, axisLine:{lineStyle:{color:Theme.border}}, axisLabel:{color:Theme.textDim,fontFamily:Theme.fontData,fontSize:10}, splitLine:{lineStyle:{color:Theme.bgPanel}} },
+    series: [
+      { name:'CPU %', type:'line', data:[], smooth:true, showSymbol:false, lineStyle:{color:Theme.green,width:1.5}, areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:Theme.greenAreaStart},{offset:1,color:Theme.greenAreaEnd}]}} },
+      { name:'Memory %', type:'line', data:[], smooth:true, showSymbol:false, lineStyle:{color:Theme.amber,width:1.5}, areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:Theme.amberAreaStart},{offset:1,color:Theme.amberAreaEnd}]}} }
+    ]
+  });
+  }
+
+  window.addEventListener('resize', () => Object.values(charts).forEach(c => c.resize()));
+}
+
+function gaugeOption(value, subtitle) {
+  return {
+    series: [{
+      type:'gauge', startAngle:220, endAngle:-40, min:0, max:100, splitNumber:10, radius:'90%',
+      axisLine: { lineStyle:{ width:12, color:[[0.6,Theme.green],[0.8,Theme.amber],[1,Theme.red]] }},
+      pointer: { itemStyle:{color:Theme.textPrimary}, width:4, length:'60%' },
+      axisTick: { distance:-12, length:6, lineStyle:{color:Theme.border,width:1} },
+      splitLine: { distance:-14, length:12, lineStyle:{color:Theme.borderAccent,width:1} },
+      axisLabel: { color:Theme.textDim, distance:20, fontSize:10, fontFamily:Theme.fontData },
+      detail: { valueAnimation:true, formatter:'{value}%', color:Theme.textPrimary, fontSize:26, fontFamily:Theme.fontDisplay, fontWeight:700, offsetCenter:[0,'70%'] },
+      title: { offsetCenter:[0,'92%'], fontSize:9, color:Theme.textDim, fontFamily:Theme.fontMono },
+      data: [{ value: value, name: subtitle }]
+    }]
+  };
+}
+
+function areaChartOption(timestamps, series1, series2, yName) {
+  return {
+    tooltip: { trigger:'axis', backgroundColor:Theme.bgPanelHeader, borderColor:Theme.borderAccent, textStyle:{color:Theme.textPrimary,fontFamily:Theme.fontData,fontSize:11} },
+    legend: { data:['Inbound','Outbound'], textStyle:{color:Theme.textSecondary,fontFamily:Theme.fontData,fontSize:10}, top:5, right:10 },
+    grid: { left:60, right:20, top:40, bottom:30 },
+    xAxis: { type:'category', data:timestamps, axisLine:{lineStyle:{color:Theme.border}}, axisLabel:{color:Theme.textDim,fontFamily:Theme.fontData,fontSize:9,interval:'auto'}, splitLine:{show:false} },
+    yAxis: { type:'value', name:yName, nameTextStyle:{color:Theme.textDim,fontFamily:Theme.fontData,fontSize:9}, axisLine:{lineStyle:{color:Theme.border}}, axisLabel:{color:Theme.textDim,fontFamily:Theme.fontData,fontSize:10}, splitLine:{lineStyle:{color:Theme.bgPanel}} },
+    series: [
+      { name:'Inbound', type:'line', data:series1, smooth:true, showSymbol:false, lineStyle:{color:Theme.cyan,width:2}, areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:Theme.cyanAreaStart},{offset:1,color:Theme.cyanAreaEnd}]}} },
+      { name:'Outbound', type:'line', data:series2, smooth:true, showSymbol:false, lineStyle:{color:Theme.purple,width:2}, areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:Theme.purpleAreaStart},{offset:1,color:Theme.purpleAreaEnd}]}} }
+    ]
+  };
+}
+
+// ── Data update handlers ───────────────────────────────────────────
+
+function updateDeviceInfoPanel(data) {
+  const container = document.getElementById('deviceInfoContainer');
+  if (!container) return;
+
+  const info = collectionCache['_deviceMeta'] || {};
+  if (data) Object.assign(info, data);
+  collectionCache['_deviceMeta'] = info;
+  collectionCache['device_info'] = info;
+
+  const fields = [
+    ['Hostname',  info.hostname || '—'],
+    ['IP',        info.ip || '—'],
+    ['Vendor',    (info.vendor || '—').replace(/_/g, ' ')],
+    ['Platform',  info.platform || info.hardware || '—'],
+    ['Version',   info.version || info.software_version || info.image_version || '—'],
+    ['Serial',    info.serial || info.serial_number || '—'],
+    ['Uptime',    info.uptime || '—'],
+    ['Image',     info.image || info.software_image || '—'],
+    ['Memory',    info.total_memory || '—'],
+  ];
+
+  const alwaysShow = 3;
+  const visible = fields.filter((f, i) => i < alwaysShow || f[1] !== '—');
+
+  let html = '<table class="data-table"><tbody>';
+  visible.forEach(([label, value]) => {
+    const valStyle = value === '—'
+      ? 'color:var(--text-dim);font-style:italic'
+      : 'color:var(--text-secondary)';
+    html += '<tr>' +
+      '<td style="color:var(--text-dim);font-size:9px;text-transform:uppercase;letter-spacing:1.5px;font-weight:600;width:90px;padding:5px 10px;white-space:nowrap">' + label + '</td>' +
+      '<td style="' + valStyle + ';padding:5px 10px;font-family:var(--font-data)">' + value + '</td>' +
+    '</tr>';
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function updateCPU(data) {
+  const val = data.five_min || data.five_sec_total || data.one_min || 0;
+  if (charts.cpu) {
+    charts.cpu.setOption({ series:[{data:[{value:Math.round(val), name:'5-MIN AVG'}]}] });
+  }
+  const badge = document.getElementById('cpuBadge');
+  if (val > 80) { badge.className='panel-badge badge-crit'; badge.textContent='CRITICAL'; }
+  else if (val > 60) { badge.className='panel-badge badge-warn'; badge.textContent='ELEVATED'; }
+  else { badge.className='panel-badge badge-ok'; badge.textContent='NORMAL'; }
+
+  if (data.processes) updateProcessTable(data.processes);
+}
+
+function updateMemory(data) {
+  const val = data.used_pct || 0;
+  const subtitle = (data.used_display && data.total_display)
+    ? data.used_display + ' / ' + data.total_display : val + '%';
+  const color = val > 75 ? Theme.amber : Theme.textPrimary;
+  if (charts.mem) {
+    charts.mem.setOption({
+      series:[{
+        data:[{value:Math.round(val*10)/10, name:subtitle}],
+        detail:{color:color, textShadowColor: val>75 ? Theme.amberDim : 'transparent', textShadowBlur: val>75 ? 10 : 0}
+      }]
+    });
+  }
+  const badge = document.getElementById('memBadge');
+  if (val > 85) { badge.className='panel-badge badge-crit'; badge.textContent='CRITICAL'; }
+  else if (val > 70) { badge.className='panel-badge badge-warn'; badge.textContent='ELEVATED'; }
+  else { badge.className='panel-badge badge-ok'; badge.textContent='NORMAL'; }
+}
+
+function updateProcessTable(processes) {
+  if (!processes || !processes.length) return;
+  const container = document.getElementById('processContainer');
+  if (!container) return;
+  let html = '<table class="data-table"><thead><tr><th>PID</th><th>Name</th><th>CPU%</th><th>MEM</th></tr></thead><tbody>';
+  processes.slice(0,15).forEach(function(p) {
+    const cpu = p.five_sec || p.cpu_pct || p.five_min || 0;
+    const cpuColor = cpu > 5 ? 'var(--amber)' : cpu > 2 ? 'var(--text-secondary)' : 'var(--text-dim)';
+    const mem = p.mem_pct ? p.mem_pct+'%' : (p.holding ? formatBytes(p.holding) : '—');
+    html += '<tr><td>'+(p.pid||'—')+'</td><td>'+(p.name||'—')+'</td><td style="color:'+cpuColor+';font-weight:600">'+cpu+'%</td><td>'+mem+'</td></tr>';
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function updateInterfaces(data) {
+  const intfs = data.interfaces || [];
+  if (!intfs.length) return;
+  const container = document.getElementById('intfContainer');
+  let upCount=0, downCount=0, adminCount=0;
+  intfs.forEach(function(i) {
+    const s = (i.status||'').toLowerCase();
+    if (s.includes('admin')) adminCount++;
+    else if (s === 'up') upCount++;
+    else downCount++;
+  });
+
+  const badge = document.getElementById('intfBadge');
+  badge.className = 'panel-badge badge-ok';
+  badge.textContent = upCount + ' UP / ' + downCount + ' DOWN / ' + adminCount + ' ADMIN-DOWN';
+
+  let html = '<table class="data-table"><thead><tr><th>Interface</th><th>Description</th><th>Status</th></tr></thead><tbody>';
+  intfs.forEach(function(i) {
+    const s = (i.status||'').toLowerCase();
+    const p = (i.protocol||'').toLowerCase();
+    const isAdmin = s.includes('admin');
+    const isUp = s === 'up' && p === 'up';
+    const rowCls = isAdmin ? 'intf-row-admin' : isUp ? 'intf-row-up' : 'intf-row-down';
+    const dotCls = isAdmin ? 'admin' : isUp ? 'up' : 'down';
+    const statusText = isAdmin ? 'admin down' : isUp ? 'up/up' : s+'/'+(p||'down');
+    const desc = i.description || '—';
+    const descStyle = desc === '—' ? 'color:var(--text-dim);font-style:italic' : 'color:var(--text-secondary)';
+    html += '<tr class="'+rowCls+'">' +
+      '<td style="font-weight:600;white-space:nowrap">'+(i.name||i.interface||'—')+'</td>' +
+      '<td style="'+descStyle+';max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+desc+'</td>' +
+      '<td style="white-space:nowrap"><span class="intf-status-dot '+dotCls+'"></span>'+statusText+'</td>' +
+    '</tr>';
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function updateInterfaceDetail(data) {
+  const intfs = data.interfaces || [];
+  if (!intfs.length) return;
+
+  const now = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false});
+  throughputHistory.timestamps.push(now);
+
+  const seen = new Set();
+  intfs.forEach(function(i) {
+    const name = i.name || i.interface || 'unknown';
+    seen.add(name);
+    if (!throughputHistory.perInterface[name]) {
+      const backfill = throughputHistory.timestamps.length - 1;
+      throughputHistory.perInterface[name] = {
+        inbound: new Array(backfill).fill(0),
+        outbound: new Array(backfill).fill(0)
+      };
+    }
+    throughputHistory.perInterface[name].inbound.push(parseInt(i.input_rate_bps || 0));
+    throughputHistory.perInterface[name].outbound.push(parseInt(i.output_rate_bps || 0));
+  });
+
+  for (const [name, hist] of Object.entries(throughputHistory.perInterface)) {
+    if (!seen.has(name)) {
+      hist.inbound.push(0);
+      hist.outbound.push(0);
+    }
+  }
+
+  if (throughputHistory.timestamps.length > THROUGHPUT_MAX) {
+    throughputHistory.timestamps.shift();
+    for (const hist of Object.values(throughputHistory.perInterface)) {
+      hist.inbound.shift();
+      hist.outbound.shift();
+    }
+  }
+
+  let dropdownChanged = false;
+  intfs.forEach(function(i) {
+    const iName = i.name || i.interface;
+    if (iName && !knownInterfaces.has(iName)) {
+      knownInterfaces.add(iName);
+      dropdownChanged = true;
+    }
+  });
+  if (dropdownChanged) {
+    const select = document.getElementById('intfSelect');
+    const current = select.value;
+    select.innerHTML = '<option value="__aggregate__">All Interfaces</option>';
+    [...knownInterfaces].sort().forEach(function(name) {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      select.appendChild(opt);
+    });
+    select.value = current;
+  }
+
+  renderThroughputChart();
+}
+
+function renderThroughputChart() {
+  const select = document.getElementById('intfSelect');
+  const selected = select ? select.value : '__aggregate__';
+  const len = throughputHistory.timestamps.length;
+  if (!len) return;
+
+  let inArr, outArr;
+
+  if (selected === '__aggregate__') {
+    inArr = new Array(len).fill(0);
+    outArr = new Array(len).fill(0);
+    for (const hist of Object.values(throughputHistory.perInterface)) {
+      for (let i = 0; i < len; i++) {
+        inArr[i] += (hist.inbound[i] || 0);
+        outArr[i] += (hist.outbound[i] || 0);
+      }
+    }
+  } else {
+    const hist = throughputHistory.perInterface[selected];
+    if (!hist) return;
+    inArr = hist.inbound.slice();
+    outArr = hist.outbound.slice();
+  }
+
+  const peak = Math.max(Math.max(...inArr), Math.max(...outArr), 1);
+  let divisor, unit;
+  if (peak >= 1000000000) { divisor = 1000000000; unit = 'Gbps'; }
+  else if (peak >= 1000000) { divisor = 1000000; unit = 'Mbps'; }
+  else if (peak >= 1000) { divisor = 1000; unit = 'Kbps'; }
+  else { divisor = 1; unit = 'bps'; }
+
+  const scaledIn = inArr.map(function(v) { return Math.round((v / divisor) * 100) / 100; });
+  const scaledOut = outArr.map(function(v) { return Math.round((v / divisor) * 100) / 100; });
+
+  charts.throughput.setOption({
+    yAxis: { name: unit },
+    xAxis: { data: throughputHistory.timestamps },
+    series: [{ data: scaledIn }, { data: scaledOut }]
+  });
+
+  const curIn = inArr[len - 1] / divisor;
+  const curOut = outArr[len - 1] / divisor;
+  const badge = document.getElementById('thruBadge');
+  if (badge) {
+    badge.className = 'panel-badge badge-ok';
+    const label = selected === '__aggregate__' ? '' : selected + ' ';
+    badge.textContent = label + '▼ ' + curIn.toFixed(1) + ' / ▲ ' + curOut.toFixed(1) + ' ' + unit;
+  }
+}
+
+function updateNeighbors(data) {
+  const neighbors = data.neighbors || [];
+  if (!neighbors.length) return;
+
+  const container = document.getElementById('neighborMapContainer');
+  if (!container) return;
+
+  const hostEl = document.getElementById('deviceHostname');
+  const hostname = (hostEl ? hostEl.textContent : '') || 'this-device';
+  const shortHost = /^\d+\.\d+\.\d+\.\d+$/.test(hostname) ? hostname : hostname.split('.')[0];
+
+  const badge = document.getElementById('neighborBadge');
+  if (badge) {
+    badge.className = 'panel-badge badge-ok';
+    badge.textContent = neighbors.length + ' PEER' + (neighbors.length !== 1 ? 'S' : '');
+  }
+
+  const NODE_SIZE = 28;
+  const ROOT_SIZE = 34;
+  const ROW_HEIGHT = 62;
+  const PADDING_TOP = 20;
+  const PADDING_BOTTOM = 16;
+  const ROOT_X = 60;
+  const containerWidth = container.clientWidth || 400;
+  const NEIGHBOR_X = Math.max(containerWidth - 80, 240);
+  const TRUNK_X = ROOT_X + ROOT_SIZE / 2 + 30;
+  const BRANCH_START_X = TRUNK_X + 8;
+  const totalHeight = Math.max(280, neighbors.length * ROW_HEIGHT + PADDING_TOP + PADDING_BOTTOM);
+  const firstY = PADDING_TOP + ROW_HEIGHT / 2;
+  const lastY = PADDING_TOP + (neighbors.length - 1) * ROW_HEIGHT + ROW_HEIGHT / 2;
+  const neighborsCenter = (firstY + lastY) / 2;
+  const rootY = Math.min(neighborsCenter, 130);
+
+  function shortIntf(name) {
+    return (name || '')
+      .replace(/TenGigabitEthernet/g,'Te')
+      .replace(/GigabitEthernet/g,'Gi')
+      .replace(/FastEthernet/g,'Fa')
+      .replace(/HundredGigE/g,'Hu')
+      .replace(/FortyGigE/g,'Fo')
+      .replace(/TwentyFiveGigE/g,'Twe')
+      .replace(/Ethernet/g,'Eth')
+      .replace(/Management/g,'Mgmt')
+      .replace(/Loopback/g,'Lo')
+      .replace(/Port-channel/g,'Po')
+      .replace(/Vlan/g,'Vl');
+  }
+
+  function nodeType(caps) {
+    const c = (caps || '').toLowerCase();
+    if (c.includes('router')) return 'router';
+    if (c.includes('switch') || c.includes('bridge')) return 'switch';
+    return 'other';
+  }
+
+  let svg = '<svg class="neighbor-map-svg" width="100%" height="' + totalHeight + '" xmlns="http://www.w3.org/2000/svg">';
+
+  if (neighbors.length === 1) {
+    svg += '<line class="edge-line" x1="' + (ROOT_X + ROOT_SIZE/2) + '" y1="' + rootY + '" x2="' + (NEIGHBOR_X - NODE_SIZE/2) + '" y2="' + firstY + '"/>';
+  } else {
+    svg += '<line class="edge-line" x1="' + (ROOT_X + ROOT_SIZE/2) + '" y1="' + rootY + '" x2="' + TRUNK_X + '" y2="' + rootY + '"/>';
+    svg += '<line class="edge-line" x1="' + TRUNK_X + '" y1="' + firstY + '" x2="' + TRUNK_X + '" y2="' + lastY + '"/>';
+  }
+
+  neighbors.forEach(function(n, i) {
+    const fullName = n.device_id || ('neighbor-' + i);
+    const name = /^\d+\.\d+\.\d+\.\d+$/.test(fullName) ? fullName : fullName.split('.')[0];
+    const type = nodeType(n.capabilities);
+    const ny = PADDING_TOP + i * ROW_HEIGHT + ROW_HEIGHT / 2;
+
+    if (neighbors.length > 1) {
+      svg += '<line class="edge-line" x1="' + TRUNK_X + '" y1="' + ny + '" x2="' + (NEIGHBOR_X - NODE_SIZE/2 - 4) + '" y2="' + ny + '"/>';
+    }
+
+    const localShort = shortIntf(n.local_intf);
+    const remoteShort = shortIntf(n.remote_intf);
+    const edgeLabel = remoteShort ? (localShort + ' ↔ ' + remoteShort) : localShort;
+    const labelX = (BRANCH_START_X + NEIGHBOR_X - NODE_SIZE/2) / 2;
+    svg += '<text class="edge-label" x="' + labelX + '" y="' + (ny - 8) + '" text-anchor="middle">' + edgeLabel + '</text>';
+
+    const nLeft = NEIGHBOR_X - NODE_SIZE / 2;
+    const nTop = ny - NODE_SIZE / 2;
+    if (type === 'router') {
+      svg += '<rect class="node-icon ' + type + '" x="' + nLeft + '" y="' + nTop + '" width="' + NODE_SIZE + '" height="' + NODE_SIZE + '" rx="4"/>';
+    } else if (type === 'switch') {
+      svg += '<rect class="node-icon ' + type + '" x="' + nLeft + '" y="' + nTop + '" width="' + NODE_SIZE + '" height="' + NODE_SIZE + '" rx="1"/>';
+    } else {
+      svg += '<circle class="node-icon ' + type + '" cx="' + NEIGHBOR_X + '" cy="' + ny + '" r="' + (NODE_SIZE/2) + '"/>';
+    }
+
+    svg += '<text class="node-name" x="' + NEIGHBOR_X + '" y="' + (ny + NODE_SIZE/2 + 13) + '" text-anchor="middle">' + escSvg(name) + '</text>';
+    if (n.mgmt_ip) {
+      svg += '<text class="node-detail" x="' + NEIGHBOR_X + '" y="' + (ny + NODE_SIZE/2 + 24) + '" text-anchor="middle">' + escSvg(n.mgmt_ip) + '</text>';
+    }
+  });
+
+  const rLeft = ROOT_X - ROOT_SIZE / 2;
+  const rTop = rootY - ROOT_SIZE / 2;
+  svg += '<rect class="node-icon root" x="' + rLeft + '" y="' + rTop + '" width="' + ROOT_SIZE + '" height="' + ROOT_SIZE + '" rx="5"/>';
+  svg += '<text x="' + ROOT_X + '" y="' + (rootY + 4) + '" text-anchor="middle" fill="var(--cyan)" font-size="10" font-weight="800" font-family="var(--font-display)">WT</text>';
+  svg += '<text class="node-name root" x="' + ROOT_X + '" y="' + (rootY + ROOT_SIZE/2 + 14) + '" text-anchor="middle">' + escSvg(shortHost) + '</text>';
+
+  const infoIp = document.getElementById('deviceSubtitle');
+  const rootDetail = infoIp ? (infoIp.textContent || '').split('·').pop().trim() : '';
+  if (rootDetail) {
+    svg += '<text class="node-detail" x="' + ROOT_X + '" y="' + (rootY + ROOT_SIZE/2 + 26) + '" text-anchor="middle">' + escSvg(rootDetail) + '</text>';
+  }
+
+  svg += '</svg>';
+  container.innerHTML = svg;
+}
+
+function escSvg(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function updateLog(data) {
+  const entries = data.entries || [];
+  if (!entries.length) return;
+  const container = document.getElementById('logContainer');
+  const badge = document.getElementById('logBadge');
+
+  const critCount = entries.filter(function(e) { return (e.severity||7) <= 3; }).length;
+  if (critCount > 0) { badge.className='panel-badge badge-warn'; badge.textContent=critCount+' WARNINGS'; }
+  else { badge.className='panel-badge badge-ok'; badge.textContent='CLEAR'; }
+
+  let html = '';
+  entries.slice(0, 30).forEach(function(e) {
+    const sev = e.severity || 6;
+    html += '<div class="log-entry">' +
+      '<span class="log-ts">' + (e.timestamp||'') + '</span>' +
+      '<span class="log-sev-' + sev + '">%' + (e.facility||'SYS') + '-' + sev + '-' + (e.mnemonic||'MSG') + '</span>: ' +
+      '<span class="log-msg">' + (e.message||'') + '</span>' +
+    '</div>';
+  });
+  container.innerHTML = html;
+}
+
+function updateHistory(cpuHistory, memHistory) {
+  if (!charts.history) return;
+  if (!cpuHistory.length && !memHistory.length) return;
+
+  const timestamps = cpuHistory.map(function(h) {
+    const d = new Date(h.timestamp * 1000);
+    return d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false});
+  });
+
+  charts.history.setOption({
+    xAxis:{data:timestamps},
+    series:[
+      {data:cpuHistory.map(function(h) { return h.data.five_min || h.data.five_sec || 0; })},
+      {data:memHistory.map(function(h) { return h.data.used_pct || 0; })}
+    ]
+  });
+}
+
+// ── JSON Debug Modal ──────────────────────────────────────────────
+
+let currentDebugJSON = '';
+
+function showDebug(collectionKey) {
+  const overlay = document.getElementById('debugOverlay');
+  const title = document.getElementById('debugTitle');
+  const body = document.getElementById('debugBody');
+  const parserTag = document.getElementById('debugParserTag');
+  const templateTag = document.getElementById('debugTemplateTag');
+
+  title.textContent = collectionKey.replace(/_/g, ' ').toUpperCase();
+
+  let data = null;
+
+  if (collectionKey === '_history') {
+    title.textContent = 'HISTORY BUFFER';
+    data = collectionCache['_history'] || null;
+    if (!data && bridge) {
+      Promise.all([
+        bridgeCall(bridge.getHistory, 'cpu'),
+        bridgeCall(bridge.getHistory, 'memory')
+      ]).then(function(results) {
+        try {
+          var cpuH = JSON.parse(results[0]);
+          var memH = JSON.parse(results[1]);
+          data = { cpu_history: cpuH, memory_history: memH };
+          collectionCache['_history'] = data;
+          currentDebugJSON = JSON.stringify(data, null, 2);
+          body.innerHTML = syntaxHighlight(currentDebugJSON);
+        } catch(e) {
+          body.innerHTML = '<span style="color:var(--red)">History parse error: ' + e.message + '</span>';
+        }
+      });
+    }
+    parserTag.style.display = 'none';
+    templateTag.style.display = 'none';
+  } else {
+    data = collectionCache[collectionKey] || null;
+
+    if (data && data._parsed_by) {
+      parserTag.style.display = '';
+      parserTag.textContent = data._parsed_by.toUpperCase();
+      parserTag.className = 'debug-parser-tag parser-' + data._parsed_by;
+    } else {
+      parserTag.style.display = 'none';
+    }
+
+    if (data && data._template && data._template !== 'inline') {
+      templateTag.style.display = '';
+      templateTag.textContent = data._template;
+      templateTag.className = 'debug-parser-tag';
+      templateTag.style.background = 'var(--border-dim)';
+      templateTag.style.color = 'var(--text-secondary)';
+      templateTag.style.border = '1px solid var(--border)';
+    } else {
+      templateTag.style.display = 'none';
+    }
+  }
+
+  if (data) {
+    currentDebugJSON = JSON.stringify(data, null, 2);
+    body.innerHTML = syntaxHighlight(currentDebugJSON);
+  } else {
+    currentDebugJSON = '';
+    body.innerHTML = '<span style="color:var(--text-dim)">No data collected yet for this panel.\n\n'
+      + 'Data appears here after the first successful poll cycle.\n'
+      + 'If this persists, check the template configuration for\n'
+      + 'this collection and vendor combination.</span>';
+  }
+
+  updateDebugButtons();
+
+  overlay.classList.add('visible');
+  document.addEventListener('keydown', debugEscHandler);
+}
+
+function closeDebug() {
+  document.getElementById('debugOverlay').classList.remove('visible');
+  document.removeEventListener('keydown', debugEscHandler);
+}
+
+function debugEscHandler(e) {
+  if (e.key === 'Escape') closeDebug();
+}
+
+document.addEventListener('click', function(e) {
+  const overlay = document.getElementById('debugOverlay');
+  if (e.target === overlay) closeDebug();
+});
+
+function copyDebugJSON() {
+  if (!currentDebugJSON) return;
+  const btn = document.getElementById('debugCopyBtn');
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(currentDebugJSON).then(function() {
+      btn.textContent = 'Copied';
+      btn.classList.add('copied');
+      setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+    });
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = currentDebugJSON;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand('copy');
+      btn.textContent = 'Copied';
+      btn.classList.add('copied');
+      setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+    } catch(e) {
+      btn.textContent = 'Failed';
+      setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
+    }
+    document.body.removeChild(ta);
+  }
+}
+
+function syntaxHighlight(json) {
+  json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return json.replace(
+    /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+    function(match) {
+      let cls = 'json-number';
+      if (/^"/.test(match)) {
+        if (/:$/.test(match)) {
+          if (/^"_/.test(match)) {
+            cls = 'json-meta-key';
+          } else {
+            cls = 'json-key';
+          }
+        } else {
+          cls = 'json-string';
+        }
+      } else if (/true|false/.test(match)) {
+        cls = 'json-bool';
+      } else if (/null/.test(match)) {
+        cls = 'json-null';
+      }
+      return '<span class="' + cls + '">' + match + '</span>';
+    }
+  );
+}
+
+function updateDebugButtons() {
+  document.querySelectorAll('.debug-btn').forEach(function(btn) {
+    const panel = btn.closest('.panel');
+    if (!panel) return;
+    const key = panel.getAttribute('data-collection');
+    if (!key) return;
+    const data = collectionCache[key];
+    if (data) {
+      if (data._error || data._parsed_by === 'none') {
+        btn.classList.add('has-error');
+        btn.classList.remove('has-data');
+      } else {
+        btn.classList.add('has-data');
+        btn.classList.remove('has-error');
+      }
+    }
+  });
+}
+
+// ── Spinner timeout ───────────────────────────────────────────────
+
+function checkSpinnerTimeouts() {
+  document.querySelectorAll('.panel[data-collection]').forEach(function(panel) {
+    const key = panel.getAttribute('data-collection');
+    if (key === 'history' || key === '_history') return;
+    if (collectionCache[key]) return;
+
+    if (totalCycles >= SPINNER_TIMEOUT_CYCLES) {
+      const waiting = panel.querySelector('.waiting');
+      if (waiting) {
+        waiting.innerHTML = '<div class="no-data">No data</div>';
+      }
+    }
+  });
+}
+
+// ── Helpers ────────────────────────────────────────────────────────
+
+function formatBytes(bytes) {
+  if (bytes > 1073741824) return (bytes/1073741824).toFixed(1)+'G';
+  if (bytes > 1048576) return (bytes/1048576).toFixed(0)+'M';
+  if (bytes > 1024) return (bytes/1024).toFixed(0)+'K';
+  return bytes+'B';
+}
+
+function updateClock() {
+  document.getElementById('liveClock').textContent =
+    new Date().toLocaleTimeString('en-US',{hour12:false}) + ' UTC';
+}
+
+// ── Electron IPC Bridge ───────────────────────────────────────────
+
+function connectBridge() {
+  if (typeof window.wirlwind === 'undefined') {
+    console.error('wirlwind preload API not available');
+    document.getElementById('connStatus').innerHTML =
+      '<span class="status-dot" style="background:var(--red);box-shadow:0 0 6px var(--red)"></span>NO BRIDGE';
+    return;
+  }
+
+  bridge = window.wirlwind;
+  console.log('Electron IPC bridge connected');
+
+  bridge.onStateChanged(function(collection, data) {
+    try {
+      collectionCache[collection] = data;
+      handleUpdate(collection, data);
+      updateDebugButtons();
+    } catch(e) { console.error('State update error:', collection, e); }
+  });
+
+  bridge.onCycleComplete(function() {
+    totalCycles++;
+    refreshHistory();
+    checkSpinnerTimeouts();
+  });
+
+  bridge.onConnectionStatus(function(status) {
+    const el = document.getElementById('connStatus');
+    if (status === 'connected') {
+      el.innerHTML = '<span class="status-dot"></span>CONNECTED';
+    } else if (status === 'disconnected') {
+      el.innerHTML = '<span class="status-dot" style="background:var(--red);box-shadow:0 0 6px var(--red)"></span>DISCONNECTED';
+    } else {
+      el.innerHTML = '<span class="status-dot" style="background:var(--red);box-shadow:0 0 6px var(--red)"></span>ERROR';
+    }
+  });
+
+  // FIX: consolidated — updateDeviceInfo now calls updateDeviceInfoPanel internally
+  bridge.onDeviceInfo(function(info) {
+    try { updateDeviceInfo(info); } catch(e) {}
+  });
+
+  loadInitialData();
+  setTimeout(loadInitialData, 2000);
+
+  setInterval(function() {
+    if (!bridge) return;
+    bridge.getSnapshot().then(function(snapStr) {
+      try {
+        var snap = JSON.parse(snapStr);
+        if (snap.collections) {
+          Object.keys(snap.collections).forEach(function(k) {
+            collectionCache[k] = snap.collections[k];
+            handleUpdate(k, snap.collections[k]);
+          });
+        }
+        if (snap.device && Object.keys(snap.device).length) updateDeviceInfo(snap.device);
+        if (snap.history) updateHistory(snap.history.cpu || [], snap.history.memory || []);
+        updateDebugButtons();
+      } catch(e) {}
+    }).catch(function() {});
+  }, 5000);
+}
+
+function loadInitialData() {
+  if (!bridge || !bridge.getSnapshot) return;
+  bridge.getSnapshot().then(function(snapshot) {
+    try {
+      var data = JSON.parse(snapshot);
+      if (data.device && Object.keys(data.device).length) updateDeviceInfo(data.device);
+      if (data.collections) {
+        Object.keys(data.collections).forEach(function(k) {
+          collectionCache[k] = data.collections[k];
+          handleUpdate(k, data.collections[k]);
+        });
+      }
+      if (data.history) {
+        collectionCache['_history'] = data.history;
+        updateHistory(data.history.cpu || [], data.history.memory || []);
+      }
+      updateDebugButtons();
+    } catch(e) { console.log('No initial data yet'); }
+  }).catch(function() { console.log('No initial data yet'); });
+}
+
+function handleUpdate(collection, data) {
+  if (data && data._parsed_by === 'none' && data._error) {
+    console.warn('Parse failed for ' + collection + ': ' + data._error);
+    return;
+  }
+
+  switch(collection) {
+    case 'cpu': updateCPU(data); break;
+    case 'memory': updateMemory(data); break;
+    case 'interfaces': updateInterfaces(data); break;
+    case 'interface_detail': updateInterfaceDetail(data); break;
+    case 'neighbors': updateNeighbors(data); break;
+    case 'log': updateLog(data); break;
+    case 'processes': updateProcessTable(data.processes || []); break;
+  }
+}
+
+function refreshHistory() {
+  if (!bridge || !bridge.getHistory) return;
+  Promise.all([
+    bridge.getHistory('cpu'),
+    bridge.getHistory('memory')
+  ]).then(function(results) {
+    try {
+      var cpuH = JSON.parse(results[0]);
+      var memH = JSON.parse(results[1]);
+      collectionCache['_history'] = { cpu: cpuH, memory: memH };
+      updateHistory(cpuH, memH);
+    } catch(e) { console.debug('History parse:', e.message); }
+  }).catch(function() {});
+}
+
+// FIX: updateDeviceInfo now calls updateDeviceInfoPanel at the end
+// so every code path (IPC event, snapshot poll, initial load) updates the panel
+function updateDeviceInfo(info) {
+  document.getElementById('deviceHostname').textContent = info.hostname || info.ip || '—';
+  document.getElementById('deviceSubtitle').textContent = [info.vendor, info.ip].filter(Boolean).join(' · ');
+  document.getElementById('vendorLabel').textContent = (info.vendor || '—').replace(/_/g,' ');
+
+  const strip = document.getElementById('infoStrip');
+  let chips = '';
+  if (info.ip) chips += '<div class="info-chip"><span class="label">IP</span><span class="value">' + info.ip + '</span></div>';
+  if (info.vendor) chips += '<div class="info-chip"><span class="label">Platform</span><span class="value">' + info.vendor.replace(/_/g,' ') + '</span></div>';
+  if (info.username) chips += '<div class="info-chip"><span class="label">User</span><span class="value">' + info.username + '</span></div>';
+  if (info.tags && info.tags.length) chips += '<div class="info-chip"><span class="label">Tags</span><span class="value">' + info.tags.join(', ') + '</span></div>';
+  if (chips) strip.innerHTML = chips;
+
+  // Update the Device Information panel
+  updateDeviceInfoPanel(info);
+}
+
+// ── Theme-aware chart rebuild ──────────────────────────────────────
+function reinitChartsTheme() {
+  if (charts.cpu) charts.cpu.setOption(gaugeOption(0, '—'), true);
+  if (charts.mem) charts.mem.setOption(gaugeOption(0, '—'), true);
+
+  if (charts.throughput) {
+    charts.throughput.setOption(areaChartOption(
+      throughputHistory.timestamps,
+      [], [], 'Mbps'
+    ), true);
+    renderThroughputChart();
+  }
+
+  if (charts.history) {
+    charts.history.setOption({
+      tooltip: { backgroundColor:Theme.bgPanelHeader, borderColor:Theme.borderAccent, textStyle:{color:Theme.textPrimary,fontFamily:Theme.fontData} },
+      legend: { textStyle:{color:Theme.textSecondary,fontFamily:Theme.fontData} },
+      xAxis: { axisLine:{lineStyle:{color:Theme.border}}, axisLabel:{color:Theme.textDim,fontFamily:Theme.fontData} },
+      yAxis: { nameTextStyle:{color:Theme.textDim,fontFamily:Theme.fontData}, axisLine:{lineStyle:{color:Theme.border}}, axisLabel:{color:Theme.textDim,fontFamily:Theme.fontData}, splitLine:{lineStyle:{color:Theme.bgPanel}} },
+      series: [
+        { lineStyle:{color:Theme.green}, areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:Theme.greenAreaStart},{offset:1,color:Theme.greenAreaEnd}]}} },
+        { lineStyle:{color:Theme.amber}, areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:Theme.amberAreaStart},{offset:1,color:Theme.amberAreaEnd}]}} }
+      ]
+    });
+  }
+}
+
+// ── Init ───────────────────────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', function() {
+  loadSavedTheme();
+  loadSavedZoom();
+  Theme.populate();
+  initCharts();
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  if (typeof window.wirlwind !== 'undefined') {
+    connectBridge();
+  } else {
+    console.log('No preload bridge — running in standalone browser mode');
+    document.getElementById('connStatus').innerHTML =
+      '<span class="status-dot" style="background:var(--amber);box-shadow:0 0 6px var(--amber)"></span>DEMO MODE';
+  }
+});
+</script>
+</body>
+</html>
