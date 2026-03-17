@@ -256,8 +256,6 @@ export class PollEngine extends EventEmitter {
             _template: parsed._template,
           };
         }
-              shaped = lowercaseKeys(shaped);
-
         shaped = lowercaseKeys(shaped);
 
         // Apply normalize map (field renames from collection YAML)

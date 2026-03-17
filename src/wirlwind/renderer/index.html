@@ -1054,29 +1054,29 @@ function updateDeviceInfoPanel(data) {
   collectionCache['_deviceMeta'] = info;
   collectionCache['device_info'] = info;
 
+  // [label, value, color] — semantic coloring per field type
   const fields = [
-    ['Hostname',  info.hostname || '—'],
-    ['IP',        info.ip || '—'],
-    ['Vendor',    (info.vendor || '—').replace(/_/g, ' ')],
-    ['Platform',  info.platform || info.hardware || '—'],
-    ['Version',   info.version || info.software_version || info.image_version || '—'],
-    ['Serial',    info.serial || info.serial_number || '—'],
-    ['Uptime',    info.uptime || '—'],
-    ['Image',     info.image || info.software_image || '—'],
-    ['Memory',    info.total_memory || '—'],
+    ['Hostname',  info.hostname || '—',                                          'var(--cyan)'],
+    ['IP',        info.ip || '—',                                                'var(--text-primary)'],
+    ['Vendor',    (info.vendor || '—').replace(/_/g, ' '),                       'var(--text-secondary)'],
+    ['Platform',  info.platform || info.model || info.hardware || '—',           'var(--green)'],
+    ['Version',   info.version || info.software_version || info.image_version || '—', 'var(--amber)'],
+    ['Serial',    info.serial || info.serial_number || '—',                      'var(--text-secondary)'],
+    ['Uptime',    info.uptime || '—',                                            'var(--cyan)'],
+    ['Image',     info.image || info.software_image || '—',                      'var(--text-secondary)'],
+    ['Memory',    info.total_memory || '—',                                      'var(--text-secondary)'],
   ];
 
   const alwaysShow = 3;
   const visible = fields.filter((f, i) => i < alwaysShow || f[1] !== '—');
 
   let html = '<table class="data-table"><tbody>';
-  visible.forEach(([label, value]) => {
-    const valStyle = value === '—'
-      ? 'color:var(--text-dim);font-style:italic'
-      : 'color:var(--text-secondary)';
+  visible.forEach(([label, value, color]) => {
+    const valColor = value === '—' ? 'var(--text-dim)' : color;
+    const valStyle = value === '—' ? 'font-style:italic' : '';
     html += '<tr>' +
       '<td style="color:var(--text-dim);font-size:9px;text-transform:uppercase;letter-spacing:1.5px;font-weight:600;width:90px;padding:5px 10px;white-space:nowrap">' + label + '</td>' +
-      '<td style="' + valStyle + ';padding:5px 10px;font-family:var(--font-data)">' + value + '</td>' +
+      '<td style="color:' + valColor + ';' + valStyle + ';padding:5px 10px;font-family:var(--font-data)">' + value + '</td>' +
     '</tr>';
   });
   html += '</tbody></table>';
@@ -1730,6 +1730,7 @@ function handleUpdate(collection, data) {
     case 'interface_detail': updateInterfaceDetail(data); break;
     case 'neighbors': updateNeighbors(data); break;
     case 'log': updateLog(data); break;
+    case 'device_info': updateDeviceInfoPanel(data); break;
     case 'processes': updateProcessTable(data.processes || []); break;
   }
 }

@@ -1,0 +1,61 @@
+# collections/device_info/_schema.yaml
+# Device identification and version information from "show version"
+#
+# Canonical field names used by the dashboard and state store.
+# Vendor-specific fields are mapped to these via the normalize
+# block in each vendor YAML.
+
+description: "Device identification, software version, and hardware inventory from show version"
+
+fields:
+  hostname:
+    type: str
+    description: "Device hostname"
+
+  model:
+    type: str
+    description: "Hardware model (e.g., vEOS-lab, WS-C3850-24T, SRX240H2)"
+
+  serial_number:
+    type: str
+    description: "Chassis or board serial number"
+
+  software_version:
+    type: str
+    description: "Running software version string"
+
+  software_image:
+    type: str
+    description: "Software image name or filename"
+
+  uptime:
+    type: str
+    description: "System uptime as human-readable string"
+
+  reload_reason:
+    type: str
+    description: "Reason for last reload/reboot"
+
+  hardware_revision:
+    type: str
+    description: "Hardware revision or version"
+
+  system_mac:
+    type: str
+    description: "System or base MAC address"
+
+  total_memory:
+    type: str
+    description: "Total system memory (raw string with units)"
+
+  free_memory:
+    type: str
+    description: "Free system memory (raw string with units)"
+
+  config_register:
+    type: str
+    description: "Configuration register value (Cisco)"
+
+  rommon:
+    type: str
+    description: "ROM monitor version (Cisco)"

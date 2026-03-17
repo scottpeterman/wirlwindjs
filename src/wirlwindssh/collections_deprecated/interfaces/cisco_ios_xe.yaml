@@ -1,0 +1,30 @@
+# collections/interfaces/cisco_ios.yaml
+# Interface description collection - Cisco IOS / IOS-XE
+#
+# Uses "show interfaces description" instead of "show ip interface brief"
+# to provide interface descriptions alongside up/down status.
+#
+# NTC TextFSM template: cisco_ios_show_interfaces_description.textfsm
+# Returns (lowercased):
+#   port, status, protocol, description
+
+command: "show interfaces description"
+interval: 60
+
+parsers:
+  # Priority 1: NTC TextFSM
+  - type: textfsm
+    templates:
+      - cisco_ios_show_interfaces_description.textfsm
+
+  # Priority 2: regex fallback
+  - type: regex
+    pattern: '^(?P<port>\S+)\s+(?P<status>up|down|admin down|deleted)\s+(?P<protocol>up|down)\s*(?P<description>.*)$'
+    flags: MULTILINE
+
+normalize:
+  name: port
+  interface: port
+  status: status
+  protocol: protocol
+  description: description

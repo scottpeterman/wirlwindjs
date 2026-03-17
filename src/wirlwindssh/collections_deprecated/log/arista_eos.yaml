@@ -1,0 +1,11 @@
+# Log collection - Arista EOS
+#
+# Raw output — driver parses syslog lines with severity highlighting.
+# Parser is set to 'none' because the AristaEOSDriver.postProcess
+# handles vendor-specific syslog format directly via parseAristaLog().
+
+command: "show logging last 24 hours"
+interval: 30
+
+parsers:
+  - type: none

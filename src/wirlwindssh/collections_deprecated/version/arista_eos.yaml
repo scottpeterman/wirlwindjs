@@ -1,0 +1,23 @@
+# collections/device_info/arista_eos.yaml
+# Device identification - Arista EOS
+#
+# TextFSM template returns (lowercased):
+#   model, hw_version, serial_number, sys_mac,
+#   software_version, total_memory, free_memory
+
+command: "show version"
+interval: 300
+
+parsers:
+  - type: textfsm
+    templates:
+      - arista_eos_show_version.textfsm
+
+normalize:
+  model: model
+  serial_number: serial_number
+  software_version: software_version
+  hardware_revision: hw_version
+  system_mac: sys_mac
+  total_memory: total_memory
+  free_memory: free_memory

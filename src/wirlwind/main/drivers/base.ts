@@ -121,14 +121,32 @@ export class BaseDriver implements VendorDriver {
     }
     if (collection === 'log') {
       if (data._raw) {
-        data.entries = parseGenericLog(data._raw);
-        data._log_source = 'driver';
+        const parsed = parseGenericLog(data._raw);
+        if (parsed.some((e: any) => e.mnemonic !== 'RAW')) {
+          data.entries = parsed;
+          data._log_source = 'driver';
+        } else {
+          // No structured lines found — pass raw lines through
+          const lines = data._raw.split('\n').map((l: string) => l.trim()).filter(Boolean);
+          lines.reverse();
+          data.entries = lines.slice(0, 50).map((line: string) => ({
+            timestamp: '',
+            facility: '',
+            severity: 6,
+            mnemonic: 'RAW',
+            message: line,
+          }));
+          data._log_source = 'raw_fallback';
+        }
       } else {
         data = postProcessLog(data);
       }
     }
     if (collection === 'bgp_summary' && data.peers) {
       data.peers = normalizeBgpPeers(data.peers);
+    }
+    if (collection === 'device_info') {
+      data = flattenDeviceInfo(data);
     }
     return data;
   }
@@ -293,6 +311,31 @@ export function normalizeBgpPeers(peers: Record<string, any>[]): Record<string, 
     }
   }
   return peers;
+}
+
+/**
+ * Flatten List fields from TextFSM in device_info data.
+ *
+ * Cisco TextFSM templates use `Value List HARDWARE` and `Value List SERIAL`
+ * which return arrays. The dashboard expects scalar strings. This also
+ * trims whitespace and cleans up empty values.
+ */
+export function flattenDeviceInfo(data: Record<string, any>): Record<string, any> {
+  // Flatten any array fields to first element
+  for (const key of Object.keys(data)) {
+    if (Array.isArray(data[key]) && !key.startsWith('_')) {
+      data[key] = data[key][0] ?? '';
+    }
+  }
+
+  // Trim string values
+  for (const key of Object.keys(data)) {
+    if (typeof data[key] === 'string') {
+      data[key] = data[key].trim();
+    }
+  }
+
+  return data;
 }
 
 /**

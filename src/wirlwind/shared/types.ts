@@ -118,7 +118,7 @@ export interface PollConfig {
 
 export const DEFAULT_POLL_CONFIG: PollConfig = {
   intervalSeconds: 30,
-  collections: ['cpu', 'memory', 'interfaces', 'interface_detail', 'neighbors', 'log'],
+  collections: ['cpu', 'memory', 'interfaces', 'interface_detail', 'neighbors', 'log', 'device_info'],
   historyMaxEntries: 720,
 };
 
