@@ -1,0 +1,19 @@
+# collections/device_info/juniper_junos.yaml
+# Device identification - Juniper JunOS
+#
+# TextFSM template returns (lowercased):
+#   hostname, model, junos_version, serial_number
+
+command: "show version"
+interval: 300
+
+parsers:
+  - type: textfsm
+    templates:
+      - juniper_junos_show_version.textfsm
+
+normalize:
+  hostname: hostname
+  model: model
+  serial_number: serial_number
+  software_version: junos_version

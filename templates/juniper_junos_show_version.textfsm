@@ -1,0 +1,11 @@
+Value HOSTNAME (\S+)
+Value MODEL (\S+)
+Value JUNOS_VERSION (\S+)
+Value SERIAL_NUMBER (\S+)
+
+Start
+  ^Hostname:\s+${HOSTNAME}
+  ^Model:\s+${MODEL}
+  ^Junos:\s+${JUNOS_VERSION}
+  ^Chassis\s+${SERIAL_NUMBER}
+  ^JUNOS\s+ -> Record

@@ -23,6 +23,7 @@ import {
   type VendorDriver,
   registerDriver,
   BaseDriver,
+  flattenDeviceInfo,
   normalizeBgpPeers,
   first,
   toFloat,
@@ -117,6 +118,17 @@ export class JuniperJunOSDriver extends BaseDriver {
       data.neighbors = JuniperJunOSDriver.postProcessNeighbors(data.neighbors);
     } else if (collection === 'interface_detail' && data.interfaces) {
       data.interfaces = JuniperJunOSDriver.postProcessInterfaces(data.interfaces);
+    } else if (collection === 'device_info') {
+      data = flattenDeviceInfo(data);
+
+      // Strip the ~30 empty JUNOS package fields so the debug modal isn't overwhelming
+      for (const key of Object.keys(data)) {
+        if (data[key] === '' && !key.startsWith('_')
+            && !['hostname', 'model', 'software_version', 'serial_number',
+                 'junos_version'].includes(key)) {
+          delete data[key];
+        }
+      }
     }
 
     return data;
