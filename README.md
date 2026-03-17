@@ -2,7 +2,7 @@
 
 Real-time network device monitoring over SSH. Connect to a switch or router, poll it on a configurable interval, parse the output through TextFSM templates, and push live telemetry to an interactive dashboard — all from a single Electron app.
 
-![Wirlwind Telemetry Dashboard](screenshots/slides.gif)
+![Wirlwind Telemetry Dashboard](screenshots/full_dashboard.png)
 
 ## What It Does
 
