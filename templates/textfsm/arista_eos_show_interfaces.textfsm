@@ -5,6 +5,7 @@
 # NTC templates don't handle.
 #
 # Rate line formats:
+#   30 seconds input rate 248 bps (0.0% with framing overhead), 0 packets/sec
 #   5 minutes input rate 47.7 kbps (0.0% with framing overhead), 7 packets/sec
 #   5 minutes input rate 649 Mbps (6.6% with framing overhead), 56242 packets/sec
 #   5 minutes input rate 0 bps (0.0% with framing overhead), 0 packets/sec
@@ -47,8 +48,8 @@ Start
   ^\s+${DUPLEX},\s+${SPEED},
   ^\s+Up\s+${LAST_LINK_FLAPPED}\s*$$
   ^\s+${LINK_STATUS_CHANGE}\s+link\s+status\s+change
-  ^\s+5\s+minutes\s+input\s+rate\s+${INPUT_RATE}\s+\(.*\),\s+${INPUT_RATE_PPS}\s+packets
-  ^\s+5\s+minutes\s+output\s+rate\s+${OUTPUT_RATE}\s+\(.*\),\s+${OUTPUT_RATE_PPS}\s+packets
+  ^\s+\d+\s+\S+\s+input\s+rate\s+${INPUT_RATE}\s+\(.*\),\s+${INPUT_RATE_PPS}\s+packets
+  ^\s+\d+\s+\S+\s+output\s+rate\s+${OUTPUT_RATE}\s+\(.*\),\s+${OUTPUT_RATE_PPS}\s+packets
   ^\s+${INPUT_PACKETS}\s+packets\s+input
   ^\s+${INPUT_ERRORS}\s+input\s+errors,\s+${CRC}\s+CRC
   ^\s+${RUNTS}\s+runts,\s+${GIANTS}\s+giants

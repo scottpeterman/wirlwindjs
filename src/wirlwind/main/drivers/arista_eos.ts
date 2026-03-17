@@ -24,6 +24,7 @@ import {
   parseRateToBps,
   BW_PATTERN,
 } from './base';
+import { parseAristaLog } from './logParsers';
 
 // ─── Interface name abbreviations for graph labels ───────────
 
@@ -62,7 +63,27 @@ export class AristaEOSDriver extends BaseDriver {
     } else if (collection === 'memory') {
       data = AristaEOSDriver.normalizeMemory(data);
     } else if (collection === 'log') {
-      data = postProcessLog(data);
+      if (data._raw) {
+        const parsed = parseAristaLog(data._raw);
+        if (parsed.length > 0) {
+          data.entries = parsed;
+          data._log_source = 'driver';
+        } else {
+          // Parsing found no syslog lines — show raw text as-is
+          const lines = data._raw.split('\n').map((l: string) => l.trim()).filter(Boolean);
+          lines.reverse();
+          data.entries = lines.slice(0, 50).map((line: string) => ({
+            timestamp: '',
+            facility: '',
+            severity: 6,
+            mnemonic: 'RAW',
+            message: line,
+          }));
+          data._log_source = 'raw_fallback';
+        }
+      } else {
+        data = postProcessLog(data);
+      }
     } else if (collection === 'bgp_summary' && data.peers) {
       data.peers = normalizeBgpPeers(data.peers);
     } else if (collection === 'neighbors' && data.neighbors) {

@@ -16,6 +16,7 @@
 import log from 'electron-log';
 import type { ParsedResult } from '../../shared/types';
 import type { StateStore } from '../stateStore';
+import { parseGenericLog } from './logParsers';
 
 // ─── Driver Interface ────────────────────────────────────────
 
@@ -119,7 +120,12 @@ export class BaseDriver implements VendorDriver {
       data = computeMemoryPct(data);
     }
     if (collection === 'log') {
-      data = postProcessLog(data);
+      if (data._raw) {
+        data.entries = parseGenericLog(data._raw);
+        data._log_source = 'driver';
+      } else {
+        data = postProcessLog(data);
+      }
     }
     if (collection === 'bgp_summary' && data.peers) {
       data.peers = normalizeBgpPeers(data.peers);

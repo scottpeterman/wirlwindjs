@@ -1,4 +1,4 @@
-Value PORT (\S+)
+Value INTERFACE (\S+)
 Value STATUS (up|down|admin\s+down)
 Value PROTOCOL (up|down|lowerlayerdown|notpresent|unknown)
 Value DESCRIPTION (\S.*?)
@@ -12,7 +12,7 @@ Start
   ^. -> Error
 
 Begin
-  ^${PORT}\s+${STATUS}\s+${PROTOCOL}(?:\s+${DESCRIPTION})?\s*$$ -> Record
+  ^${INTERFACE}\s+${STATUS}\s+${PROTOCOL}(?:\s+${DESCRIPTION})?\s*$$ -> Record
   ^\s*$$
   ^. -> Error
 

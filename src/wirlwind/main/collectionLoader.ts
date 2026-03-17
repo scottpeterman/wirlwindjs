@@ -19,6 +19,7 @@ import * as path from 'path';
 import * as yaml from 'js-yaml';
 import log from 'electron-log';
 import type { CollectionDef, CollectionSchema, VendorType } from '../shared/types';
+import { getWorkspacePath } from './workspace';
 
 let collectionsBasePath: string;
 
@@ -60,6 +61,28 @@ export function loadCollection(
   collection: string,
   vendor: VendorType
 ): CollectionDef | null {
+  const label = `${collection}/${vendor}`;
+
+  // ── Workspace override — check first ─────────────────────
+  const ws = getWorkspacePath();
+  if (ws) {
+    const wsPath = path.join(ws, 'collections', collection, `${vendor}.yaml`);
+    if (fs.existsSync(wsPath)) {
+      try {
+        const raw = fs.readFileSync(wsPath, 'utf-8');
+        const rawDef = yaml.load(raw) as any;
+        const def = normalizeCollectionDef(rawDef, label);
+        if (def) {
+          log.info(`[workspace] ${label}.yaml`);
+          return def;
+        }
+      } catch (err) {
+        log.error(`[workspace] Failed to load ${wsPath}: ${err}`);
+      }
+    }
+  }
+
+  // ── Built-in ─────────────────────────────────────────────
   const filePath = path.join(collectionsBasePath, collection, `${vendor}.yaml`);
 
   if (!fs.existsSync(filePath)) {

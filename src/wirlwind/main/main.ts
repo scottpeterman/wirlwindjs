@@ -10,6 +10,7 @@ import { app, BrowserWindow, session } from 'electron';
 import * as path from 'path';
 import log from 'electron-log';
 import { TelemetryBridge } from './bridge';
+import { initWorkspace } from './workspace';
 import { initCollections } from './collectionLoader';
 import { initParser } from './parserChain';
 import type { DeviceTarget, VendorType } from '../shared/types';
@@ -45,6 +46,7 @@ function createWindow(): void {
   mainWindow.loadFile(dashboardPath);
 
   // Initialize subsystems
+  initWorkspace();
   initCollections();
   initParser();
 

@@ -14,6 +14,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import log from 'electron-log';
 import type { CollectionDef, ParsedResult, RegexPattern } from '../shared/types';
+import { getWorkspacePath } from './workspace';
 
 // tfsmjs import — module exports { TextFSM, TextFSMValue, ... }
 let TextFSM: any;
@@ -160,21 +161,32 @@ function parseTextFSM(rawOutput: string, templateName: string): ParsedResult | n
  * Searches: templates/textfsm/<name>, templates/<name>
  */
 function resolveTemplatePath(name: string): string | null {
-  const candidates = [
-    path.join(templatesBasePath, 'textfsm', name),
-    path.join(templatesBasePath, name),
-  ];
+  const ws = getWorkspacePath();
+  const searchBases = ws
+    ? [path.join(ws, 'templates'), templatesBasePath]
+    : [templatesBasePath];
 
-  // Add .textfsm extension if not present
-  if (!name.endsWith('.textfsm')) {
-    candidates.push(
-      path.join(templatesBasePath, 'textfsm', name + '.textfsm'),
-      path.join(templatesBasePath, name + '.textfsm')
-    );
-  }
+  for (const base of searchBases) {
+    const candidates = [
+      path.join(base, 'textfsm', name),
+      path.join(base, name),
+    ];
 
-  for (const p of candidates) {
-    if (fs.existsSync(p)) return p;
+    if (!name.endsWith('.textfsm')) {
+      candidates.push(
+        path.join(base, 'textfsm', name + '.textfsm'),
+        path.join(base, name + '.textfsm')
+      );
+    }
+
+    for (const p of candidates) {
+      if (fs.existsSync(p)) {
+        if (ws && base !== templatesBasePath) {
+          log.info(`[workspace] template: ${name}`);
+        }
+        return p;
+      }
+    }
   }
 
   return null;

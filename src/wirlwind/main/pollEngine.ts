@@ -27,6 +27,8 @@ import { StateStore } from './stateStore';
 import { parseWithTrace } from './parserChain';
 import { loadAllCollections } from './collectionLoader';
 import { getDriver, defaultShapeOutput } from './drivers';
+import { scrubOutput } from './scrubOutput';
+import { applyNormalize } from './applyNormalize';
 
 /** Lowercase all keys in a dict (and nested arrays of dicts). Matches Python TextFSM behavior. */
 function lowercaseKeys(obj: Record<string, any>): Record<string, any> {
@@ -227,8 +229,12 @@ export class PollEngine extends EventEmitter {
         );
 
         // Parse output
+        // Scrub command echo and trailing prompt before parsing
+        const cleanOutput = scrubOutput(result.output, def.command, this.client?.prompt ?? undefined);
+
+        // Parse output
         const { result: parsed, trace } = parseWithTrace(
-          result.output,
+          cleanOutput,
           def,
           name
         );
@@ -251,6 +257,13 @@ export class PollEngine extends EventEmitter {
           };
         }
               shaped = lowercaseKeys(shaped);
+
+        shaped = lowercaseKeys(shaped);
+
+        // Apply normalize map (field renames from collection YAML)
+        if (def.normalize) {
+          shaped = applyNormalize(shaped, def.normalize, name);
+        }
 
         // Post-process via vendor driver
         const processed = driver

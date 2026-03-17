@@ -1,0 +1,1854 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>tfsmjs Tester</title>
+<style>
+  :root {
+    --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    --font-ui: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+  [data-theme="dark"] {
+    --bg-primary: #0d1117;
+    --bg-secondary: #161b22;
+    --bg-tertiary: #1c2333;
+    --bg-input: #0d1117;
+    --border: #30363d;
+    --border-focus: #58a6ff;
+    --text-primary: #e6edf3;
+    --text-secondary: #8b949e;
+    --text-muted: #6e7681;
+    --accent: #00e0a0;
+    --accent-dim: rgba(0,224,160,0.15);
+    --error: #f85149;
+    --error-bg: rgba(248,81,73,0.1);
+    --header-key: #79c0ff;
+    --cell-alt: rgba(255,255,255,0.02);
+    --btn-bg: #21262d;
+    --btn-hover: #30363d;
+    --badge-bg: rgba(0,224,160,0.12);
+    --badge-text: #00e0a0;
+    --scrollbar-thumb: #30363d;
+    --shadow: 0 1px 3px rgba(0,0,0,0.4);
+  }
+  [data-theme="light"] {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f6f8fa;
+    --bg-tertiary: #eef1f5;
+    --bg-input: #ffffff;
+    --border: #d0d7de;
+    --border-focus: #0969da;
+    --text-primary: #1f2328;
+    --text-secondary: #656d76;
+    --text-muted: #8b949e;
+    --accent: #0a8c5e;
+    --accent-dim: rgba(10,140,94,0.1);
+    --error: #cf222e;
+    --error-bg: rgba(207,34,46,0.08);
+    --header-key: #0550ae;
+    --cell-alt: rgba(0,0,0,0.02);
+    --btn-bg: #f3f4f6;
+    --btn-hover: #e5e7eb;
+    --badge-bg: rgba(10,140,94,0.1);
+    --badge-text: #0a8c5e;
+    --scrollbar-thumb: #c0c8d0;
+    --shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font-ui);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 4px; }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-secondary);
+  }
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .logo {
+    font-family: var(--font-mono);
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+  }
+  .logo span { color: var(--text-muted); font-weight: 400; }
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  /* Theme toggle */
+  .theme-toggle {
+    background: var(--btn-bg);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.15s;
+  }
+  .theme-toggle:hover { background: var(--btn-hover); }
+
+  /* Main layout */
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr auto;
+    gap: 0;
+    height: calc(100vh - 49px);
+  }
+
+  /* Panels */
+  .panel {
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .panel:nth-child(2) { border-right: none; }
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .panel-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+  }
+  .panel-badge {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: var(--badge-bg);
+    color: var(--badge-text);
+  }
+
+  textarea {
+    flex: 1;
+    width: 100%;
+    padding: 12px 16px;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--text-primary);
+    background: var(--bg-input);
+    border: none;
+    outline: none;
+    resize: none;
+    tab-size: 4;
+  }
+  textarea::placeholder { color: var(--text-muted); }
+
+  /* Action bar */
+  .action-bar {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border);
+  }
+  .action-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .btn {
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 7px 18px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+  }
+  .btn-primary:hover { filter: brightness(1.15); }
+  .btn-secondary {
+    background: var(--btn-bg);
+    color: var(--text-primary);
+  }
+  .btn-secondary:hover { background: var(--btn-hover); }
+  .btn-sm {
+    font-size: 12px;
+    padding: 4px 10px;
+  }
+
+  .status {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .status.error { color: var(--error); }
+  .status.success { color: var(--accent); }
+
+  /* Results panel */
+  .results-wrapper {
+    display: none;
+    grid-column: 1 / -1;
+    max-height: 50vh;
+    overflow: auto;
+    border-top: 1px solid var(--border);
+    background: var(--bg-primary);
+  }
+  .results-wrapper.visible { display: block; }
+
+  .results-header {
+    position: sticky;
+    top: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    z-index: 10;
+  }
+
+  /* Table */
+  .results-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+  .results-table th {
+    position: sticky;
+    top: 37px;
+    background: var(--bg-tertiary);
+    color: var(--header-key);
+    font-weight: 600;
+    text-align: left;
+    padding: 8px 14px;
+    border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+    z-index: 5;
+  }
+  .results-table td {
+    padding: 6px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-primary);
+    max-width: 400px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .results-table tr:nth-child(even) td { background: var(--cell-alt); }
+  .results-table tr:hover td { background: var(--accent-dim); }
+  .results-table td.empty { color: var(--text-muted); font-style: italic; }
+
+  /* JSON view */
+  .json-view {
+    display: none;
+    padding: 16px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    color: var(--text-primary);
+  }
+  .json-view.visible { display: block; }
+
+  /* Error display */
+  .error-box {
+    margin: 16px;
+    padding: 12px 16px;
+    background: var(--error-bg);
+    border: 1px solid var(--error);
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--error);
+    white-space: pre-wrap;
+  }
+
+  /* Sample selector */
+  select {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--btn-bg);
+    color: var(--text-primary);
+    cursor: pointer;
+    outline: none;
+  }
+  select:focus { border-color: var(--border-focus); }
+
+  /* Responsive - stack on narrow */
+  @media (max-width: 900px) {
+    .main {
+      grid-template-columns: 1fr;
+      grid-template-rows: 1fr 1fr auto;
+    }
+    .panel { border-right: none; border-bottom: 1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo">tfsmjs <span>tester</span></div>
+    <select id="sampleSelect" onchange="loadSample(this.value)">
+      <option value="">— load sample —</option>
+      <option value="arista_version">Arista EOS - show version</option>
+      <option value="arista_lldp">Arista EOS - show lldp neighbors</option>
+      <option value="cisco_interfaces">Cisco IOS - show interfaces</option>
+    </select>
+  </div>
+  <div class="header-right">
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">◐</button>
+  </div>
+</div>
+
+<div class="main">
+  <!-- Template panel -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-label">TextFSM Template</span>
+      <button class="btn btn-secondary btn-sm" onclick="clearPanel('template')">Clear</button>
+    </div>
+    <textarea id="template" spellcheck="false" placeholder="Paste TextFSM template here...
+
+Value HOSTNAME (\S+)
+Value VERSION (.+)
+
+Start
+  ^Hostname:\s+${HOSTNAME}
+  ^Software\s+version:\s+${VERSION} -> Record"></textarea>
+  </div>
+
+  <!-- Device output panel -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-label">Device Output</span>
+      <button class="btn btn-secondary btn-sm" onclick="clearPanel('output')">Clear</button>
+    </div>
+    <textarea id="output" spellcheck="false" placeholder="Paste raw CLI output here...
+
+agg1.iad1>show version
+Arista vEOS
+Hardware version:
+..."></textarea>
+  </div>
+
+  <!-- Action bar -->
+  <div class="action-bar">
+    <div class="action-left">
+      <button class="btn btn-primary" onclick="runParse()">▶ Parse</button>
+      <button class="btn btn-secondary" id="viewToggle" onclick="toggleView()" style="display:none;">{ } JSON</button>
+      <span class="status" id="status"></span>
+    </div>
+    <div>
+      <span class="status" id="parseTime"></span>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div class="results-wrapper" id="resultsWrapper">
+    <div class="results-header">
+      <span class="panel-label" id="resultsLabel">Results</span>
+      <button class="btn btn-secondary btn-sm" onclick="copyResults()">Copy JSON</button>
+    </div>
+    <div id="tableContainer"></div>
+    <div class="json-view" id="jsonView"></div>
+  </div>
+</div>
+
+<!-- Embedded tfsmjs engine (browser build) -->
+<script>
+// --- BEGIN tfsm-node.js (browser-compatible, fs/path stripped) ---
+// TextFSM JavaScript implementation
+class TextFSMError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'TextFSMError';
+  }
+}
+
+class TextFSMTemplateError extends TextFSMError {
+  constructor(message) {
+    super(message);
+    this.name = 'TextFSMTemplateError';
+  }
+}
+
+class TextFSMOptions {
+  static ValidOptions() {
+    return ['Required', 'Filldown', 'Fillup', 'Key', 'List'];
+  }
+
+  static GetOption(name) {
+    switch(name) {
+      case 'Required': return TextFSMOptions.Required;
+      case 'Filldown': return TextFSMOptions.Filldown;
+      case 'Fillup': return TextFSMOptions.Fillup;
+      case 'Key': return TextFSMOptions.Key;
+      case 'List': return TextFSMOptions.List;
+      default: return null;
+    }
+  }
+
+static Required = class {
+  constructor(value) {
+    this.value = value;
+    this.name = 'Required';
+  }
+
+  OnCreateOptions() {}
+  OnClearVar() {}
+  OnClearAllVar() {}
+  OnAssignVar() {}
+  OnGetValue() {}
+
+  OnSaveRecord() {
+    // For List values, check if the list is empty
+    if (Array.isArray(this.value.value) && this.value.value.length === 0) {
+      throw new SkipRecord(`Required value '${this.value.name}' has no entries`);
+    }
+    // For scalar values, check if the value is null, undefined, or empty string
+    else if (this.value.value === null || this.value.value === undefined || this.value.value === '') {
+      throw new SkipRecord(`Required value '${this.value.name}' is empty`);
+    }
+  }
+};
+
+  static Filldown = class {
+    constructor(value) {
+      this.value = value;
+      this.name = 'Filldown';
+      this._myvar = null;
+    }
+
+    OnCreateOptions() {}
+
+    OnAssignVar() {
+      this._myvar = this.value.value;
+    }
+
+    OnClearVar() {
+      this.value.value = this._myvar;
+    }
+
+    OnClearAllVar() {
+      this._myvar = null;
+    }
+
+    OnGetValue() {}
+    OnSaveRecord() {}
+  };
+
+  static Fillup = class {
+    constructor(value) {
+      this.value = value;
+      this.name = 'Fillup';
+    }
+
+    OnCreateOptions() {}
+    OnClearVar() {}
+    OnClearAllVar() {}
+    OnGetValue() {}
+    OnSaveRecord() {}
+
+    OnAssignVar() {
+      // If value is set, copy up the results table, until we see a set item
+      if (this.value.value) {
+        // Get index of relevant result column
+        const valueIdx = this.value.fsm.values.indexOf(this.value);
+
+        // Go up the list from the end until we see a filled value
+        const results = this.value.fsm._result;
+        for (let i = results.length - 1; i >= 0; i--) {
+          if (results[i][valueIdx]) {
+            // Stop when a record has this column already
+            break;
+          }
+          // Otherwise set the column value
+          results[i][valueIdx] = this.value.value;
+        }
+      }
+    }
+  };
+
+static Key = class {
+  constructor(value) {
+    this.value = value;
+    this.name = 'Key';
+  }
+
+  OnCreateOptions() {}
+  OnClearVar() {}
+  OnClearAllVar() {}
+  OnAssignVar() {}
+  OnGetValue() {}
+
+  OnSaveRecord() {
+    // Skip if the value is empty
+    if (this.value.value === null || this.value.value === undefined || this.value.value === '') {
+      return;
+    }
+
+    // Get all values with Key option to form a composite key
+    const keyValues = this.value.fsm.values
+      .filter(v => v.options.some(opt => opt.name === 'Key'))
+      .map(v => v.value);
+
+    // Create a string key for the Set
+    const keyString = JSON.stringify(keyValues);
+
+    // Check if this key has been seen before
+    if (this.value.fsm._seenKeys.has(keyString)) {
+      throw new SkipRecord(`Duplicate key: ${keyString}`);
+    }
+
+    // Add the key to the seen keys set
+    this.value.fsm._seenKeys.add(keyString);
+  }
+};
+
+static List = class {
+  constructor(value) {
+    this.value = value;
+    this.name = 'List';
+    this._value = [];
+  }
+
+  OnCreateOptions() {
+    this.OnClearAllVar();
+  }
+
+  OnAssignVar() {
+    // Nested matches will have more than one match group
+    let match = null;
+
+    if (this.value.compiledRegex && this.value.compiledRegex.source.includes('(?<')) {
+      match = this.value.compiledRegex.exec(this.value.value);
+    }
+
+    // If the List-value regex has match-groups defined, add the resulting
+    // dict to the list. Otherwise, add the string that was matched
+    if (match && Object.keys(match.groups).length > 1) {
+      // Create a copy of the groups object, excluding the main capture group
+      const groups = { ...match.groups };
+      // If the main group name is the same as the value name, remove it
+      if (groups[this.value.name]) {
+        delete groups[this.value.name];
+      }
+      this._value.push(groups);
+    } else {
+      this._value.push(this.value.value);
+    }
+  }
+
+  OnClearVar() {
+    // Check if Filldown is present in options
+    const hasFilldown = this.value.options.some(option => option.name === 'Filldown');
+
+    if (!hasFilldown) {
+      this._value = [];
+    }
+    // When Filldown is present, keep the current values
+  }
+
+  OnClearAllVar() {
+    this._value = [];
+  }
+
+  OnGetValue() {}
+
+  OnSaveRecord() {
+    this.value.value = [...this._value]; // Create a copy of the list
+  }
+};
+
+}
+
+class TextFSMValue {
+  constructor(fsm = null, maxNameLen = 48, optionsClass = null) {
+    this.maxNameLen = maxNameLen;
+    this.name = null;
+    this.options = [];
+    this.regex = null;
+    this.value = null;
+    this.fsm = fsm;
+    this._options_cls = optionsClass || TextFSMOptions;
+  }
+
+  AssignVar(value) {
+    this.value = value;
+    this.options.forEach(option => option.OnAssignVar());
+  }
+
+  ClearVar() {
+    this.value = null;
+    this.options.forEach(option => option.OnClearVar());
+  }
+
+  ClearAllVar() {
+    this.value = null;
+    this.options.forEach(option => option.OnClearAllVar());
+  }
+
+  Header() {
+    this.options.forEach(option => option.OnGetValue());
+    return this.name;
+  }
+
+  OptionNames() {
+    return this.options.map(option => option.name);
+  }
+
+  Parse(value) {
+    const valueLine = value.split(' ');
+    if (valueLine.length < 3) {
+      throw new TextFSMTemplateError('Expect at least 3 tokens on line.');
+    }
+
+    if (!valueLine[2].startsWith('(')) {
+      // Options are present
+      const options = valueLine[1];
+      options.split(',').forEach(option => {
+        this._AddOption(option);
+      });
+
+      // Call option OnCreateOptions callbacks
+      this.options.forEach(option => option.OnCreateOptions());
+
+      this.name = valueLine[2];
+      this.regex = valueLine.slice(3).join(' ');
+    } else {
+      // No options, treat argument as name
+      this.name = valueLine[1];
+      this.regex = valueLine.slice(2).join(' ');
+    }
+
+    if (this.name.length > this.maxNameLen) {
+      throw new TextFSMTemplateError(`Invalid Value name '${this.name}' or name too long.`);
+    }
+
+    if (this.regex[0] !== '(' || this.regex[this.regex.length - 1] !== ')' || this.regex[this.regex.length - 2] === '\\') {
+      throw new TextFSMTemplateError(`Value '${this.regex}' must be contained within a '()' pair.`);
+    }
+
+    try {
+      // Convert Python's (?P<name>pattern) to JavaScript's (?<name>pattern)
+      const jsRegex = this.regex.replace(/\(\?P<(\w+)>/g, '(?<$1>');
+      this.compiledRegex = new RegExp(jsRegex);
+    } catch (e) {
+      throw new TextFSMTemplateError(e.message);
+    }
+
+    // Replace Python's named groups with JavaScript's named groups
+    this.template = this.regex.replace(/^\(/, `(?<${this.name}>`);
+  }
+
+  _AddOption(name) {
+    // Check for duplicate option declaration
+    if (this.options.some(option => option.name === name)) {
+      throw new TextFSMTemplateError(`Duplicate option "${name}"`);
+    }
+
+    // Create option object
+    const OptionClass = this._options_cls.GetOption(name);
+    if (!OptionClass) {
+      throw new TextFSMTemplateError(`Unknown option "${name}"`);
+    }
+
+    const option = new OptionClass(this);
+    this.options.push(option);
+  }
+
+  OnSaveRecord() {
+    this.options.forEach(option => option.OnSaveRecord());
+  }
+
+  toString() {
+    if (this.options.length) {
+      return `Value ${this.OptionNames().join(',')} ${this.name} ${this.regex}`;
+    } else {
+      return `Value ${this.name} ${this.regex}`;
+    }
+  }
+}
+
+class TextFSMRule {
+  // Match actions and operators similar to Python version
+  static MATCH_ACTION = /(?<match>.*)(\s->(?<action>.*))/;
+  static LINE_OP = ['Continue', 'Next', 'Error'];
+  static RECORD_OP = ['Clear', 'Clearall', 'Record', 'NoRecord'];
+
+  // Create regex patterns similar to Python version, with JS regex syntax
+  static LINE_OP_RE = `(?<ln_op>${TextFSMRule.LINE_OP.join('|')})`;
+  static RECORD_OP_RE = `(?<rec_op>${TextFSMRule.RECORD_OP.join('|')})`;
+  static OPERATOR_RE = `(${TextFSMRule.LINE_OP_RE}(\\.${TextFSMRule.RECORD_OP_RE})?)`;
+  static NEWSTATE_RE = `(?<new_state>\\w+|".*")`;
+
+  // Compile regex patterns
+  static ACTION_RE = new RegExp(`\\s+${TextFSMRule.OPERATOR_RE}(\\s+${TextFSMRule.NEWSTATE_RE})?$`);
+  static ACTION2_RE = new RegExp(`\\s+${TextFSMRule.RECORD_OP_RE}(\\s+${TextFSMRule.NEWSTATE_RE})?$`);
+  static ACTION3_RE = new RegExp(`(\\s+${TextFSMRule.NEWSTATE_RE})?$`);
+
+constructor(line, lineNum = -1, varMap = null) {
+  this.match = '';
+  this.regex = '';
+  this.regexObj = null;
+  this.lineOp = '';  // Equivalent to 'Next'
+  this.recordOp = '';  // Equivalent to 'NoRecord'
+  this.newState = '';  // Equivalent to current state
+  this.lineNum = lineNum;
+  this.multiline = false; // Flag for multi-line patterns
+
+  // FIXED: Don't trim the line here - preserve whitespace
+  const trimmedLine = line.trim();
+  if (!trimmedLine) {
+    throw new TextFSMTemplateError(`Null data in FSMRule. Line: ${this.lineNum}`);
+  }
+
+  // Check for -> action
+  const matchAction = TextFSMRule.MATCH_ACTION.exec(trimmedLine);
+  if (matchAction) {
+    this.match = matchAction.groups.match;
+  } else {
+    this.match = trimmedLine;
+  }
+
+  // Replace ${varname} entries (template substitution)
+  this.regex = this.match;
+  if (varMap) {
+    try {
+      this.regex = this.match.replace(/\${(\w+)}/g, (match, name) => {
+        if (varMap[name] === undefined) {
+          throw new TextFSMTemplateError(
+            `Invalid variable substitution: '${name}'. Line: ${this.lineNum}`
+          );
+        }
+        return varMap[name];
+      });
+    } catch (e) {
+      throw new TextFSMTemplateError(
+        `Error in template substitution. Line: ${this.lineNum}. ${e.message}`
+      );
+    }
+  }
+
+  // Check if this is a multi-line pattern (contains \n)
+  this.multiline = this.regex.includes('\\n');
+
+  try {
+    // Convert Python regex to JavaScript regex
+    const jsRegex = this.regex.replace(/\(\?P<(\w+)>/g, '(?<$1>');
+    // Use CopyableRegexObject with 's' flag for multi-line patterns
+    const flags = this.multiline ? 's' : '';
+    this.regexObj = new CopyableRegexObject(jsRegex, flags);
+  } catch (e) {
+    throw new TextFSMTemplateError(`Invalid regular expression: '${this.regex}'. Line: ${this.lineNum}`);
+  }
+
+  // No -> present, so we're done
+  if (!matchAction) {
+    return;
+  }
+
+  // Process action part
+  const action = matchAction.groups.action;
+  let actionRe = TextFSMRule.ACTION_RE.exec(action);
+
+  if (!actionRe) {
+    actionRe = TextFSMRule.ACTION2_RE.exec(action);
+
+    if (!actionRe) {
+      actionRe = TextFSMRule.ACTION3_RE.exec(action);
+
+      if (!actionRe) {
+        throw new TextFSMTemplateError(`Badly formatted rule '${trimmedLine}'. Line: ${this.lineNum}`);
+      }
+    }
+  }
+
+  // Process line operator
+  if (actionRe.groups && actionRe.groups.ln_op) {
+    this.lineOp = actionRe.groups.ln_op;
+  }
+
+  // Process record operator
+  if (actionRe.groups && actionRe.groups.rec_op) {
+    this.recordOp = actionRe.groups.rec_op;
+  }
+
+  // Process new state
+  if (actionRe.groups && actionRe.groups.new_state) {
+    this.newState = actionRe.groups.new_state;
+  }
+
+  // Validate: only 'Next' line operator can have a new_state
+  if (this.lineOp === 'Continue' && this.newState) {
+    throw new TextFSMTemplateError(`Action '${this.lineOp}' with new state ${this.newState} specified. Line: ${this.lineNum}`);
+  }
+
+  // Validate state name
+  if (this.lineOp !== 'Error' && this.newState) {
+    if (!/^\w+$/.test(this.newState)) {
+      throw new TextFSMTemplateError(`Alphanumeric characters only in state names. Line: ${this.lineNum}`);
+    }
+  }
+}
+
+  toString() {
+    let operation = '';
+    if (this.lineOp && this.recordOp) {
+      operation = '.';
+    }
+
+    operation = `${this.lineOp}${operation}${this.recordOp}`;
+
+    const newState = operation && this.newState ? ` ${this.newState}` : this.newState;
+
+    // Print with implicit defaults
+    if (!(operation || newState)) {
+      return `  ${this.match}`;
+    }
+
+    // Non defaults
+    return `  ${this.match} -> ${operation}${newState}`;
+  }
+}
+
+class TextFSM {
+constructor(template, optionsClass = TextFSMOptions) {
+  this.MAX_NAME_LEN = 48;
+  this._options_cls = optionsClass;
+  this.states = {};
+  this.stateList = [];
+  this.values = [];
+  this.valueMap = {};
+  this._lineNum = 0;
+  this._curState = null;
+  this._curStateName = null;
+  this._seenKeys = new Set(); // Add this for key tracking
+
+  // Parse the template (assuming template is a string)
+  this._parse(template);
+
+  // Initialize starting data
+  this.reset();
+}
+reset() {
+  // Set current state to Start
+  this._curState = this.states['Start'];
+  this._curStateName = 'Start';
+
+  // Clear results and current record
+  this._result = [];
+  this._seenKeys.clear();
+  this._lineBuffer = undefined; // Initialize line buffer
+  this._clearAllRecord();
+}
+
+  get header() {
+    return this._getHeader();
+  }
+
+  _getHeader() {
+    return this.values.map(value => {
+      try {
+        return value.Header();
+      } catch (e) {
+        if (e instanceof SkipValue) {
+          return null;
+        }
+        throw e;
+      }
+    }).filter(h => h !== null);
+  }
+
+  _getValue(name) {
+    return this.values.find(value => value.name === name);
+  }
+
+// Append record method update
+_appendRecord() {
+  // If no values then don't output
+  if (!this.values.length) {
+    return;
+  }
+
+  const curRecord = [];
+  try {
+    for (const value of this.values) {
+      try {
+        value.OnSaveRecord();
+      } catch (e) {
+        if (e instanceof SkipRecord) {
+          this._clearRecord();
+          return;
+        }
+        if (e instanceof SkipValue) {
+          continue;
+        }
+        throw e;
+      }
+      // Build current record
+      curRecord.push(value.value);
+    }
+  } catch (e) {
+    if (e instanceof SkipRecord) {
+      this._clearRecord();
+      return;
+    }
+    throw e;
+  }
+  // If no values in template or whole record is empty, don't output
+  if (curRecord.length === 0 ||
+      curRecord.every(val => val === null || (Array.isArray(val) && val.length === 0))) {
+    return;
+  }
+  // Replace null entries with empty string
+  for (let i = 0; i < curRecord.length; i++) {
+    if (curRecord[i] === null) {
+      curRecord[i] = '';
+    }
+  }
+  this._result.push(curRecord);
+  this._clearRecord();
+} // End of _appendRecord
+
+_validateConsistency() {
+  // Check for undefined value references in rules
+  for (const stateName in this.states) {
+    for (const rule of this.states[stateName]) {
+      const valueRefs = (rule.match.match(/\${(\w+)}/g) || [])
+        .map(ref => ref.substring(2, ref.length - 1));
+      for (const ref of valueRefs) {
+        if (!this.valueMap[ref]) {
+          throw new TextFSMTemplateError(
+            `Rule in state '${stateName}' references undefined value '${ref}'`
+          );
+        }
+      }
+    }
+  }
+  // Validate regex patterns in values are valid
+  for (const value of this.values) {
+    try {
+      if (!value.compiledRegex) {
+        throw new Error(`Value '${value.name}' has no compiled regex`);
+      }
+      // Test the regex with a simple string to verify it compiles
+      value.compiledRegex.test("");
+    } catch (e) {
+      throw new TextFSMTemplateError(
+        `Invalid regex in value '${value.name}': ${e.message}`
+      );
+    }
+  }
+  // Check for unreachable states
+  const reachableStates = new Set(['Start']);
+  let statesAdded = true;
+  // Keep adding states until no new states are found
+  while (statesAdded) {
+    statesAdded = false;
+    for (const stateName of reachableStates) {
+      if (!this.states[stateName]) continue;
+      for (const rule of this.states[stateName]) {
+        if (rule.newState &&
+            rule.newState !== 'End' &&
+            rule.newState !== 'EOF' &&
+            !reachableStates.has(rule.newState)) {
+          reachableStates.add(rule.newState);
+          statesAdded = true;
+        }
+      }
+    }
+  }
+  // Find unreachable states
+  const unreachableStates = this.stateList.filter(
+    state => state !== 'End' && state !== 'EOF' && !reachableStates.has(state)
+  );
+  if (unreachableStates.length > 0) {
+    throw new TextFSMTemplateError(
+      `Unreachable states found: ${unreachableStates.join(', ')}`
+    );
+  }
+  // Validate option combinations
+  for (const value of this.values) {
+    const options = value.OptionNames();
+    // Additional checks beyond what's in _validateOptions
+    if (options.includes('Required') && options.includes('Filldown')) {
+      throw new TextFSMTemplateError(
+        `Value '${value.name}' has both 'Required' and 'Filldown' options, which may cause unexpected behavior`
+      );
+    }
+  }
+  return true;
+} // End of _validateConsistency
+
+
+_parse(template) {
+  if (!template) {
+    throw new TextFSMTemplateError('Null template.');
+  }
+
+  // Handle potential encoding issues by ensuring we have a string
+  let templateStr = template;
+
+  // If input is ArrayBuffer or TypedArray, convert to string
+  if (template instanceof ArrayBuffer ||
+      (typeof ArrayBuffer !== 'undefined' && ArrayBuffer.isView(template))) {
+    try {
+      templateStr = new TextDecoder('utf-8').decode(template);
+    } catch (e) {
+      // Fallback for environments without TextDecoder
+      templateStr = String.fromCharCode.apply(null,
+        new Uint8Array(template instanceof ArrayBuffer ? template : template.buffer));
+    }
+  }
+
+  // Split template into lines, handling different line endings
+  const lines = templateStr.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+
+  // Parse Variables section
+  let lineIndex = this._parseVariables(lines);
+
+  // Parse States
+  while (lineIndex < lines.length) {
+    lineIndex = this._parseState(lines, lineIndex);
+  }
+
+  // Validate FSM
+  this._validateFSM();
+
+  // Perform additional validations
+  this._validateConsistency();
+}
+
+  _parseVariables(lines) {
+    this.values = [];
+    let lineIndex = 0;
+
+    for (; lineIndex < lines.length; lineIndex++) {
+      this._lineNum = lineIndex + 1;
+      const line = lines[lineIndex].trim();
+
+      // Blank line signifies end of Value definitions
+      if (!line) {
+        return lineIndex + 1;
+      }
+
+      // Skip commented lines
+      if (line.startsWith('#')) {
+        continue;
+      }
+
+      if (line.startsWith('Value ')) {
+        try {
+          const value = new TextFSMValue(
+            this,
+            this.MAX_NAME_LEN,
+            this._options_cls
+          );
+          value.Parse(line);
+
+          if (this.header.includes(value.name)) {
+            throw new TextFSMTemplateError(
+              `Duplicate declarations for Value '${value.name}'. Line: ${this._lineNum}`
+            );
+          }
+
+          this._validateOptions(value);
+          this.values.push(value);
+          this.valueMap[value.name] = value.template;
+        } catch (e) {
+          if (e instanceof TextFSMTemplateError) {
+            throw new TextFSMTemplateError(`${e.message} Line ${this._lineNum}.`);
+          }
+          throw e;
+        }
+      } else if (!this.values.length) {
+        throw new TextFSMTemplateError('No Value definitions found.');
+      } else {
+        throw new TextFSMTemplateError(
+          `Expected blank line after last Value entry. Line: ${this._lineNum}.`
+        );
+      }
+    }
+
+    return lineIndex;
+  }
+
+  _validateOptions(value) {
+    // Check for incompatible options
+    const options = value.OptionNames();
+
+    // Cannot have both Key and List
+    if (options.includes('Key') && options.includes('List')) {
+      throw new TextFSMTemplateError(`Value cannot have both 'Key' and 'List' options: '${value.name}'`);
+    }
+
+    // Cannot have both Filldown and Fillup
+    if (options.includes('Filldown') && options.includes('Fillup')) {
+      throw new TextFSMTemplateError(`Value cannot have both 'Filldown' and 'Fillup' options: '${value.name}'`);
+    }
+
+    // Additional validation can be added here
+  }
+
+  _parseState(lines, startIndex) {
+    let lineIndex = startIndex;
+    let stateName = '';
+
+    // Find state definition
+    for (; lineIndex < lines.length; lineIndex++) {
+      this._lineNum = lineIndex + 1;
+      // FIXED: Use trimmed version only for blank check and state definition
+      const line = lines[lineIndex];
+      const trimmedLine = line.trim();
+
+      // Skip blank lines and comments
+      if (!trimmedLine || trimmedLine.startsWith('#')) {
+        continue;
+      }
+
+      // First non-blank, non-comment line is state definition
+      const stateNameRe = /^(\w+)$/;
+      if (!stateNameRe.test(trimmedLine) ||
+          trimmedLine.length > this.MAX_NAME_LEN ||
+          TextFSMRule.LINE_OP.includes(trimmedLine) ||
+          TextFSMRule.RECORD_OP.includes(trimmedLine)) {
+        throw new TextFSMTemplateError(
+          `Invalid state name: '${trimmedLine}'. Line: ${this._lineNum}`
+        );
+      }
+
+      stateName = trimmedLine;
+      if (stateName in this.states) {
+        throw new TextFSMTemplateError(
+          `Duplicate state name: '${trimmedLine}'. Line: ${this._lineNum}`
+        );
+      }
+
+      this.states[stateName] = [];
+      this.stateList.push(stateName);
+      lineIndex++;
+      break;
+    }
+
+    if (!stateName) {
+      return lines.length; // End of file
+    }
+
+    // Parse rules in this state
+    for (; lineIndex < lines.length; lineIndex++) {
+      this._lineNum = lineIndex + 1;
+      // FIXED: Use original line here to preserve whitespace
+      const line = lines[lineIndex];
+      const trimmedLine = line.trim();
+
+      // Blank line ends the state
+      if (!trimmedLine) {
+        return lineIndex + 1;
+      }
+
+      // Skip comments
+      if (trimmedLine.startsWith('#')) {
+        continue;
+      }
+
+      // Check rule format - FIXED: Use the array.some() approach
+      const hasValidPrefix = [' ^', '  ^', '\t^'].some(prefix => line.startsWith(prefix));
+      if (!hasValidPrefix) {
+        throw new TextFSMTemplateError(
+          `Missing white space or carat ('^') before rule. Line: ${this._lineNum}. Content: "${line}"`
+        );
+      }
+
+      // Add rule to state
+      this.states[stateName].push(
+        new TextFSMRule(line, this._lineNum, this.valueMap)
+      );
+    }
+
+    return lines.length; // End of file
+  }
+
+// Validate FSM update for EOF
+_validateFSM() {
+  // Must have 'Start' state
+  if (!('Start' in this.states)) {
+    throw new TextFSMTemplateError("Missing state 'Start'.");
+  }
+
+  // 'End' state (if specified) must be empty
+  if (this.states['End'] && this.states['End'].length > 0) {
+    throw new TextFSMTemplateError("Non-Empty 'End' state.");
+  }
+
+  // Remove 'End' state
+  if ('End' in this.states) {
+    delete this.states['End'];
+    this.stateList = this.stateList.filter(state => state !== 'End');
+  }
+
+  // Ensure jump states are all valid
+  for (const state in this.states) {
+    for (const rule of this.states[state]) {
+      if (rule.lineOp === 'Error') {
+        continue;
+      }
+
+      if (!rule.newState || rule.newState === 'End' || rule.newState === 'EOF') {
+        continue;
+      }
+
+      if (!(rule.newState in this.states)) {
+        throw new TextFSMTemplateError(
+          `State '${rule.newState}' not found, referenced in state '${state}'`
+        );
+      }
+    }
+  }
+
+  return true;
+}
+
+parseText(text, eof = true) {
+  if (!text) {
+    return this._result;
+  }
+
+  // Normalize line endings and handle encoding
+  let processedText = text;
+  if (typeof text !== 'string') {
+    try {
+      processedText = new TextDecoder('utf-8').decode(text);
+    } catch (e) {
+      // Fallback for older browsers
+      processedText = text.toString();
+    }
+  }
+
+  // Split text into lines, handling different line endings
+  const lines = processedText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+
+  // Process each line
+  for (const line of lines) {
+    this._processLine(line);
+    if (this._curStateName === 'End') {
+      break;
+    }
+  }
+
+  // Handle EOF state if it exists
+  if (this._curStateName !== 'End' && eof) {
+    if ('EOF' in this.states) {
+      // Process rules in the EOF state
+      this._curState = this.states['EOF'];
+      this._curStateName = 'EOF';
+      this._processLine(''); // Process with empty line to trigger EOF rules
+    } else {
+      // No EOF state defined, just append the current record
+      this._appendRecord();
+    }
+  }
+
+  return this._result;
+}
+
+  _processLine(line) {
+    // Pre-process the line before checking rules
+    const trimmedLine = this._preprocessLine(line);
+    this._checkLine(trimmedLine);
+  }
+
+  _preprocessLine(line) {
+    // Remove trailing whitespace
+    // This better matches Python's behavior when handling lines
+    return line.replace(/\s+$/, '');
+  }
+
+parseText(text, eof = true) {
+  if (!text) {
+    return this._result;
+  }
+
+  // Normalize line endings and handle encoding
+  let processedText = text;
+  if (typeof text !== 'string') {
+    try {
+      processedText = new TextDecoder('utf-8').decode(text);
+    } catch (e) {
+      // Fallback for older browsers
+      processedText = text.toString();
+    }
+  }
+
+  // Split text into lines, handling different line endings
+  const lines = processedText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+
+  // Process each line
+  for (const line of lines) {
+    this._processLine(line);
+    if (this._curStateName === 'End') {
+      break;
+    }
+  }
+
+  // Handle EOF state if it exists
+  if (this._curStateName !== 'End' && eof) {
+    if ('EOF' in this.states) {
+      // Process rules in the EOF state
+      this._curState = this.states['EOF'];
+      this._curStateName = 'EOF';
+      this._processLine(''); // Process with empty line to trigger EOF rules
+    } else {
+      // No EOF state defined, just append the current record
+      this._appendRecord();
+    }
+  }
+
+  return this._result;
+}
+  _checkLine(line) {
+    for (const rule of this._curState) {
+      const matched = this._checkRule(rule, line);
+      if (matched) {
+        // Process captured groups
+        for (const value in matched.groups) {
+          this._assignVar(matched, value);
+        }
+
+        if (this._operations(rule, line)) {
+          // Not a Continue, so check for state transition
+          if (rule.newState) {
+            if (rule.newState !== 'End' && rule.newState !== 'EOF') {
+              this._curState = this.states[rule.newState];
+            }
+            this._curStateName = rule.newState;
+          }
+          break;
+        }
+      }
+    }
+  }
+
+
+_checkRule(rule, line) {
+  // This is a separate method so it can be overridden for debugging
+  const match = rule.regexObj.match(line);
+
+  // If we have a match with named groups, handle them more thoroughly
+  if (match && match.groups) {
+    // Keep original match but enhance groups handling
+    return match;
+  }
+
+  return match;
+}
+  _assignVar(matched, value) {
+  const fsm_value = this._getValue(value);
+  if (fsm_value) {
+    // If we have a matched group, use it
+    if (matched.groups && matched.groups[value] !== undefined) {
+      fsm_value.AssignVar(matched.groups[value]);
+    }
+  }
+}
+
+// New method for named groups output
+parseTextToNamedGroups(text, eof = true) {
+  // First parse the text regularly
+  this.parseText(text, eof);
+
+  // Then convert the result to an array of objects with named properties
+  return this._result.map(row => {
+    const obj = {};
+    for (let i = 0; i < this.values.length; i++) {
+      const valueName = this.values[i].name;
+      obj[valueName] = row[i];
+    }
+    return obj;
+  });
+}
+  _operations(rule, line) {
+    // Process record operators
+    if (rule.recordOp === 'Record') {
+      this._appendRecord();
+    } else if (rule.recordOp === 'Clear') {
+      this._clearRecord();
+    } else if (rule.recordOp === 'Clearall') {
+      this._clearAllRecord();
+    }
+
+    // Process line operators
+    if (rule.lineOp === 'Error') {
+      if (rule.newState) {
+        throw new TextFSMError(
+          `Error: ${rule.newState}. Rule Line: ${rule.lineNum}. Input Line: ${line}.`
+        );
+      }
+      throw new TextFSMError(
+        `State Error raised. Rule Line: ${rule.lineNum}. Input Line: ${line}.`
+      );
+    } else if (rule.lineOp === 'Continue') {
+      // Continue with current line
+      return false;
+    }
+
+    // Return to start of current state with new line
+    return true;
+  }
+
+parseTextToDicts(text, eof = true) {
+  const resultLists = this.parseText(text, eof);
+  return resultLists.map(row => {
+    const dict = {};
+    for (let i = 0; i < this.header.length; i++) {
+      // Use the header value as the property name
+      dict[this.header[i]] = row[i];
+
+      // If the value is a List and contains objects with named properties,
+      // preserve those object structures
+      if (Array.isArray(row[i]) && row[i].length > 0 && typeof row[i][0] === 'object') {
+        // Keep the object structure for each item in the list
+        dict[this.header[i]] = row[i];
+      }
+    }
+    return dict;
+  });
+}
+
+  _clearRecord() {
+    // Remove non-Filldown record entries
+    this.values.forEach(value => value.ClearVar());
+  }
+
+  _clearAllRecord() {
+    // Remove all record entries
+    this.values.forEach(value => value.ClearAllVar());
+  }
+
+  getValuesByAttrib(attribute) {
+    if (!this._options_cls.ValidOptions().includes(attribute)) {
+      throw new Error(`'${attribute}': Not a valid attribute.`);
+    }
+
+    return this.values
+      .filter(value => value.OptionNames().includes(attribute))
+      .map(value => value.name);
+  }
+
+  toString() {
+    let result = this.values.map(value => value.toString()).join('\n');
+    result += '\n';
+
+    for (const state of this.stateList) {
+      result += `\n${state}\n`;
+      if (this.states[state].length) {
+        result += this.states[state].map(rule => rule.toString()).join('\n') + '\n';
+      }
+    }
+
+    return result;
+  }
+}
+
+// CopyableRegexObject implementation
+// Updated CopyableRegexObject class
+class CopyableRegexObject {
+  constructor(pattern, flags = '') {
+    this.pattern = pattern;
+    this.flags = flags;
+    this.regex = new RegExp(pattern, flags);
+  }
+
+  exec(str) {
+    return this.regex.exec(str);
+  }
+
+  test(str) {
+    return this.regex.test(str);
+  }
+
+  match(str) {
+    // JavaScript doesn't have direct match method, simulate it
+    const result = this.regex.exec(str);
+    return result && result.index === 0 ? result : null;
+  }
+
+  replace(str, newSubStr) {
+    return str.replace(this.regex, newSubStr);
+  }
+
+  clone() {
+    return new CopyableRegexObject(this.pattern, this.flags);
+  }
+}
+
+// Helper exception classes
+class FSMAction extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'FSMAction';
+  }
+}
+
+class SkipRecord extends FSMAction {
+  constructor(message) {
+    super(message);
+    this.name = 'SkipRecord';
+  }
+}
+
+class SkipValue extends FSMAction {
+  constructor(message) {
+    super(message);
+    this.name = 'SkipValue';
+  }
+}
+
+// Export the module for browser use
+const TextFSMModule = {
+  TextFSM,
+  TextFSMValue,
+  TextFSMRule,
+  TextFSMOptions,
+  TextFSMError,
+  TextFSMTemplateError
+};
+
+// Make it available in the global scope
+window.TextFSMModule = TextFSMModule;
+
+// --- END tfsm-node.js ---
+</script>
+
+<script>
+// ---- State ----
+let lastResults = null;
+let showJson = false;
+
+// ---- Samples ----
+const SAMPLES = {
+  arista_version: {
+    template: `Value HOSTNAME (\\S+)
+Value FQDN (\\S+)
+Value MODEL (\\S+)
+Value IMAGE_FILE (\\S+)
+Value SOFTWARE_IMAGE (\\S+)
+Value VERSION ([\\d.]+\\S*)
+Value SERIAL_NUMBER (\\S+)
+Value MAC_ADDRESS (\\S+)
+Value UPTIME (.+?)
+Value HARDWARE_REVISION (\\S+)
+
+Start
+  ^\\s*Arista\\s+${MODEL}
+  ^\\s*Hardware\\s+version:\\s+${HARDWARE_REVISION}\\s*$$
+  ^\\s*Serial\\s+number:\\s+${SERIAL_NUMBER}\\s*$$
+  ^\\s*System\\s+MAC\\s+address:\\s+${MAC_ADDRESS}\\s*$$
+  ^\\s*Software\\s+image\\s+version:\\s+${VERSION}\\s*$$
+  ^\\s*Architecture:\\s+\\S+
+  ^\\s*Internal\\s+build
+  ^\\s*Uptime:\\s+${UPTIME}$$
+  ^\\s*$$
+  ^. -> Record`,
+    output: `Arista vEOS-lab
+Hardware version: 
+Serial number: BAD032986065E8DC08C167B0B1BE0E34
+Management MAC address:   50:01:01:05:00:00
+System MAC address:   50:01:01:05:00:00
+
+Software image version: 4.32.2F-38195967.4322F (engineering build)
+Architecture: x86_64
+Internal build version: 4.32.2F-38195967.4322F
+Internal build ID: 73d11585-ca67-4e45-ad07-9f4aa68cb7e4
+Image format: i386 and target
+Image optimization: None
+
+Uptime:                 5 weeks, 4 days, 20 hours and 22 minutes
+Total memory:           2014424 kB
+Free memory:            732548 kB`
+  },
+  arista_lldp: {
+    template: `Value NEIGHBOR (\\S+)
+Value LOCAL_INTERFACE (\\S+)
+Value NEIGHBOR_PORT (\\S+)
+Value TTL (\\d+)
+
+Start
+  ^${NEIGHBOR}\\s+${LOCAL_INTERFACE}\\s+${TTL}\\s+\\S+\\s+\\S+\\s+${NEIGHBOR_PORT} -> Record`,
+    output: `Neighbor Device ID    Local Intf    Hold-time    Capability     Port ID
+spine1.iad1           Ethernet1     120          Bridge, Router Et1
+spine2.iad1           Ethernet2     120          Bridge, Router Et1
+leaf1.iad1            Ethernet3     120          Bridge, Router Et47
+leaf2.iad1            Ethernet4     120          Bridge, Router Et47
+leaf3.iad1            Ethernet5     120          Bridge, Router Et47
+sw-mgmt.iad1          Management1   120          Bridge         Gi0/1
+fw-edge.iad1          Ethernet6     120          Router         eth0`
+  },
+  cisco_interfaces: {
+    template: `Value INTERFACE (\\S+)
+Value LINK_STATUS (\\S+)
+Value PROTOCOL_STATUS (\\S+)
+Value HARDWARE_TYPE ([\\w ]+)
+Value ADDRESS ([a-zA-Z0-9]+\\.[a-zA-Z0-9]+\\.[a-zA-Z0-9]+)
+Value BIA ([a-zA-Z0-9]+\\.[a-zA-Z0-9]+\\.[a-zA-Z0-9]+)
+Value DESCRIPTION (.+?)
+Value IP_ADDRESS (\\d+\\.\\d+\\.\\d+\\.\\d+)
+Value PREFIX_LENGTH (\\d+)
+Value MTU (\\d+)
+Value DUPLEX (\\S+)
+Value SPEED (\\S+)
+Value BANDWIDTH (\\d+\\s+\\S+)
+Value DELAY (\\d+\\s+\\S+)
+Value ENCAPSULATION (\\S+)
+Value LAST_INPUT (.+?)
+Value LAST_OUTPUT (.+?)
+Value LAST_OUTPUT_HANG (.+?)
+Value QUEUE_STRATEGY (.+)
+Value INPUT_RATE (\\d+)
+Value OUTPUT_RATE (\\d+)
+Value INPUT_PACKETS (\\d+)
+Value OUTPUT_PACKETS (\\d+)
+Value INPUT_ERRORS (\\d+)
+Value OUTPUT_ERRORS (\\d+)
+
+Start
+  ^\\S+\\s+is\\s+ -> Continue.Record
+  ^${INTERFACE}\\s+is\\s+${LINK_STATUS},\\s+line\\s+protocol\\s+is\\s+${PROTOCOL_STATUS}\\s*$$
+  ^\\s+Description:\\s+${DESCRIPTION}\\s*$$
+  ^\\s+Internet\\s+address\\s+is\\s+${IP_ADDRESS}/${PREFIX_LENGTH}\\s*$$
+  ^\\s+Hardware\\s+is\\s+${HARDWARE_TYPE},\\s+address\\s+is\\s+${ADDRESS}\\s+\\(bia\\s+${BIA}\\)
+  ^\\s+MTU\\s+${MTU}
+  ^\\s+${DUPLEX},\\s+${SPEED}
+  ^\\s+BW\\s+${BANDWIDTH},\\s+DLY\\s+${DELAY}
+  ^\\s+Encapsulation\\s+${ENCAPSULATION}
+  ^\\s+Last\\s+input\\s+${LAST_INPUT},\\s+output\\s+${LAST_OUTPUT},\\s+output\\s+hang\\s+${LAST_OUTPUT_HANG}
+  ^\\s+Queueing\\s+strategy:\\s+${QUEUE_STRATEGY}
+  ^\\s+5\\s+minute\\s+input\\s+rate\\s+${INPUT_RATE}\\s+bits/sec
+  ^\\s+5\\s+minute\\s+output\\s+rate\\s+${OUTPUT_RATE}\\s+bits/sec
+  ^\\s+${INPUT_PACKETS}\\s+packets\\s+input
+  ^\\s+${OUTPUT_PACKETS}\\s+packets\\s+output
+  ^\\s+${INPUT_ERRORS}\\s+input\\s+errors
+  ^\\s+${OUTPUT_ERRORS}\\s+output\\s+errors`,
+    output: `GigabitEthernet0/0 is up, line protocol is up
+  Description: UPLINK TO CORE
+  Hardware is iGbE, address is 5000.0001.0000 (bia 5000.0001.0000)
+  Internet address is 10.0.0.1/30
+  MTU 1500 bytes, BW 1000000 Kbit/sec, DLY 10 usec,
+  Encapsulation ARPA
+  Full-duplex, 1000Mb/s
+  Last input 00:00:01, output 00:00:01, output hang never
+  Queueing strategy: fifo
+  5 minute input rate 452000 bits/sec, 312 packets/sec
+  5 minute output rate 891000 bits/sec, 587 packets/sec
+     48291 packets input
+     62810 packets output
+     0 input errors
+     2 output errors
+GigabitEthernet0/1 is administratively down, line protocol is down
+  Description: UNUSED
+  Hardware is iGbE, address is 5000.0001.0001 (bia 5000.0001.0001)
+  MTU 1500 bytes, BW 1000000 Kbit/sec, DLY 10 usec,
+  Encapsulation ARPA
+  Half-duplex, 100Mb/s
+  Last input never, output never, output hang never
+  Queueing strategy: fifo
+  5 minute input rate 0 bits/sec, 0 packets/sec
+  5 minute output rate 0 bits/sec, 0 packets/sec
+     0 packets input
+     0 packets output
+     0 input errors
+     0 output errors`
+  }
+};
+
+// ---- Core ----
+function runParse() {
+  const templateText = document.getElementById('template').value.trim();
+  const outputText = document.getElementById('output').value.trim();
+  const statusEl = document.getElementById('status');
+  const timeEl = document.getElementById('parseTime');
+  const wrapper = document.getElementById('resultsWrapper');
+
+  if (!templateText) {
+    statusEl.className = 'status error';
+    statusEl.textContent = 'Template is empty';
+    return;
+  }
+  if (!outputText) {
+    statusEl.className = 'status error';
+    statusEl.textContent = 'Device output is empty';
+    return;
+  }
+
+  try {
+    const t0 = performance.now();
+    const fsm = new window.TextFSMModule.TextFSM(templateText);
+    const results = fsm.parseTextToDicts(outputText);
+    const elapsed = (performance.now() - t0).toFixed(1);
+
+    lastResults = results;
+    showJson = false;
+
+    timeEl.textContent = `${elapsed}ms`;
+    document.getElementById('viewToggle').style.display = 'inline-block';
+
+    if (results.length === 0) {
+      statusEl.className = 'status error';
+      statusEl.textContent = 'No records matched';
+      wrapper.classList.add('visible');
+      document.getElementById('tableContainer').innerHTML =
+        '<div class="error-box">Template compiled but 0 records matched the device output.\nCheck your template rules and Value definitions.</div>';
+      document.getElementById('jsonView').classList.remove('visible');
+      document.getElementById('resultsLabel').textContent = 'Results — 0 records';
+      return;
+    }
+
+    statusEl.className = 'status success';
+    statusEl.textContent = `${results.length} record${results.length > 1 ? 's' : ''}`;
+    document.getElementById('resultsLabel').textContent = `Results — ${results.length} record${results.length > 1 ? 's' : ''}`;
+
+    renderTable(results);
+    wrapper.classList.add('visible');
+
+  } catch (e) {
+    statusEl.className = 'status error';
+    statusEl.textContent = 'Parse error';
+    timeEl.textContent = '';
+    wrapper.classList.add('visible');
+    document.getElementById('tableContainer').innerHTML =
+      `<div class="error-box">${escapeHtml(e.message)}\n\n${escapeHtml(e.stack || '')}</div>`;
+    document.getElementById('jsonView').classList.remove('visible');
+    document.getElementById('viewToggle').style.display = 'none';
+    lastResults = null;
+  }
+}
+
+function renderTable(results) {
+  if (!results || results.length === 0) return;
+
+  const keys = Object.keys(results[0]);
+  let html = '<table class="results-table"><thead><tr>';
+  html += '<th>#</th>';
+  for (const k of keys) html += `<th>${escapeHtml(k)}</th>`;
+  html += '</tr></thead><tbody>';
+
+  for (let i = 0; i < results.length; i++) {
+    html += '<tr>';
+    html += `<td style="color:var(--text-muted)">${i}</td>`;
+    for (const k of keys) {
+      const v = results[i][k];
+      const display = v === '' || v === null || v === undefined
+        ? '<span class="empty">—</span>'
+        : escapeHtml(Array.isArray(v) ? JSON.stringify(v) : String(v));
+      html += `<td title="${escapeHtml(String(v ?? ''))}">${display}</td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+
+  document.getElementById('tableContainer').innerHTML = html;
+  document.getElementById('tableContainer').style.display = 'block';
+  document.getElementById('jsonView').classList.remove('visible');
+}
+
+function toggleView() {
+  if (!lastResults) return;
+  showJson = !showJson;
+  const btn = document.getElementById('viewToggle');
+
+  if (showJson) {
+    btn.textContent = '⊞ Table';
+    document.getElementById('tableContainer').style.display = 'none';
+    const jsonEl = document.getElementById('jsonView');
+    jsonEl.textContent = JSON.stringify(lastResults, null, 2);
+    jsonEl.classList.add('visible');
+  } else {
+    btn.textContent = '{ } JSON';
+    document.getElementById('tableContainer').style.display = 'block';
+    document.getElementById('jsonView').classList.remove('visible');
+  }
+}
+
+function copyResults() {
+  if (!lastResults) return;
+  navigator.clipboard.writeText(JSON.stringify(lastResults, null, 2)).then(() => {
+    const btn = event.target;
+    const orig = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = orig, 1200);
+  });
+}
+
+// ---- Helpers ----
+function loadSample(key) {
+  if (!key || !SAMPLES[key]) return;
+  document.getElementById('template').value = SAMPLES[key].template;
+  document.getElementById('output').value = SAMPLES[key].output;
+  document.getElementById('sampleSelect').value = '';
+}
+
+function clearPanel(which) {
+  if (which === 'template') document.getElementById('template').value = '';
+  else document.getElementById('output').value = '';
+}
+
+function toggleTheme() {
+  const html = document.documentElement;
+  html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ---- Keyboard shortcut ----
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    runParse();
+  }
+});
+</script>
+
+</body>
+</html>
