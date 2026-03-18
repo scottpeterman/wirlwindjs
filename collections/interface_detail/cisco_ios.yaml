@@ -1,49 +1,46 @@
 # Interface Detail collection - Cisco IOS / IOS-XE
 #
-# Full interface statistics from 'show interfaces'.
-# Unlocks: throughput chart, full interface table, interface errors panel.
+# Uses "show interfaces" for full per-interface statistics.
+# Heavier command — runs less frequently than interfaces description.
 #
-# NTC TextFSM returns (lowercased):
-#   interface, link_status, protocol_status, description, ip_address,
-#   mtu, bandwidth ("1000000 Kbit"), speed ("1000Mbps"),
-#   input_rate (bps), output_rate (bps), input_pps, output_pps,
-#   input_errors, output_errors, crc, runts, giants, ...
+# Actual output per interface block:
+#   GigabitEthernet0/0 is up, line protocol is up
+#     Hardware is iGbE, address is 0050.56ab.1234 (bia 0050.56ab.1234)
+#     Description: TO core1 Gi0/1
+#     Internet address is 10.0.0.1/30
+#     MTU 1500 bytes, BW 1000000 Kbit/sec, DLY 10 usec,
+#     ...
+#     5 minute input rate 23000 bits/sec, 18 packets/sec
+#     5 minute output rate 45000 bits/sec, 31 packets/sec
+#        1234567 packets input, 987654321 bytes, 0 no buffer
+#        0 input errors, 0 CRC, 0 frame, 0 overrun, 0 ignored
+#        1234000 packets output, 876543210 bytes, 0 underruns
+#        0 output errors, 0 collisions, 0 interface resets
 #
-# NOTE: input_rate / output_rate are the IOS 5-minute weighted averages
-#       in bits/sec — already rate-computed by the device. No delta math
-#       needed for v1. Counter-based delta calculation can come later for
-#       more accurate short-interval rates.
+# TextFSM rows (lowercased):
+#   interface, link_status, protocol_status, hardware_type,
+#   mac_address, bia, description, ip_address, mtu, bandwidth,
+#   duplex, speed, last_link_flapped, input_rate, output_rate,
+#   input_rate_pps, output_rate_pps, input_packets, output_packets,
+#   input_errors, output_errors, crc, runts, giants
 #
-# NTC template: cisco_ios_show_interfaces.textfsm
+# The driver normalizes bandwidth/rate strings to numeric bps
+# and computes utilization_pct.
 
 command: "show interfaces"
 interval: 60
+timeout: 30000
 
 parsers:
-  # Priority 1: NTC TextFSM (returns full per-interface rows)
   - type: textfsm
     templates:
       - cisco_ios_show_interfaces.textfsm
 
-  # Priority 2: regex fallback — captures rate lines only
-  # Less data than TextFSM, but keeps the throughput chart alive
-  - type: regex
-    pattern: '(?P<interface>\S+) is (?P<link_status>up|down|administratively down), line protocol is (?P<protocol_status>up|down).*?5 minute input rate (?P<input_rate>\d+) bits/sec.*?5 minute output rate (?P<output_rate>\d+) bits/sec'
-    flags: DOTALL
-
-# Map parser output → dashboard field names
-# Dashboard JS expects: name, status, protocol, input_rate_bps, output_rate_bps
 normalize:
-  name: interface
-  status: link_status
-  protocol: protocol_status
-  input_rate_bps: input_rate
-  output_rate_bps: output_rate
+  input_rate_raw: input_rate
+  output_rate_raw: output_rate
+  bandwidth_raw: bandwidth
   in_errors: input_errors
   out_errors: output_errors
   crc_errors: crc
-  description: description
-  ip_address: ip_address
-  mtu: mtu
-  bandwidth_raw: bandwidth
-  speed: speed
+  link_status: status

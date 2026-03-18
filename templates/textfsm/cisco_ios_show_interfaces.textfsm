@@ -1,0 +1,42 @@
+Value Required INTERFACE (\S+)
+Value LINK_STATUS (.+?)
+Value PROTOCOL_STATUS (.+?)
+Value HARDWARE_TYPE ([\w ]+?)
+Value MAC_ADDRESS (\S+)
+Value BIA (\S+)
+Value DESCRIPTION (.+?)
+Value IP_ADDRESS (\d+\.\d+\.\d+\.\d+\S*)
+Value MTU (\d+)
+Value BANDWIDTH (\d+\s*\w+)
+Value DUPLEX (\S+)
+Value SPEED (\S+)
+Value INPUT_RATE (\d+)
+Value OUTPUT_RATE (\d+)
+Value INPUT_RATE_PPS (\d+)
+Value OUTPUT_RATE_PPS (\d+)
+Value INPUT_PACKETS (\d+)
+Value OUTPUT_PACKETS (\d+)
+Value INPUT_ERRORS (\d+)
+Value OUTPUT_ERRORS (\d+)
+Value CRC (\d+)
+Value RUNTS (\d+)
+Value GIANTS (\d+)
+
+Start
+  ^\S -> Continue.Record
+  ^${INTERFACE}\s+is\s+${LINK_STATUS},\s+line\s+protocol\s+is\s+${PROTOCOL_STATUS}\s*$$
+  ^\s+Hardware\s+is\s+${HARDWARE_TYPE},\s+address\s+is\s+${MAC_ADDRESS}(?:\s+\(bia\s+${BIA}\))?
+  ^\s+Description:\s+${DESCRIPTION}\s*$$
+  ^\s+Internet\s+address\s+is\s+${IP_ADDRESS}\s*$$
+  ^\s+MTU\s+${MTU}\s+bytes,\s+BW\s+${BANDWIDTH}
+  ^\s+Full-duplex -> Continue
+  ^\s+Half-duplex -> Continue
+  ^\s+Auto-duplex -> Continue
+  ^\s+${DUPLEX},\s+${SPEED}
+  ^\s+\d+\s+\w+\s+input\s+rate\s+${INPUT_RATE}\s+bits/sec,\s+${INPUT_RATE_PPS}\s+packets/sec
+  ^\s+\d+\s+\w+\s+output\s+rate\s+${OUTPUT_RATE}\s+bits/sec,\s+${OUTPUT_RATE_PPS}\s+packets/sec
+  ^\s+${INPUT_PACKETS}\s+packets\s+input
+  ^\s+${INPUT_ERRORS}\s+input\s+errors,\s+${CRC}\s+CRC,\s+\d+\s+frame,\s+\d+\s+overrun
+  ^\s+${RUNTS}\s+runts,\s+${GIANTS}\s+giants
+  ^\s+${OUTPUT_PACKETS}\s+packets\s+output
+  ^\s+${OUTPUT_ERRORS}\s+output\s+errors

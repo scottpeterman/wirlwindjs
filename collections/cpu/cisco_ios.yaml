@@ -1,10 +1,24 @@
 # CPU collection - Cisco IOS / IOS-XE
-# Works for both classic IOS (7200) and IOS-XE (CSR/ISR)
 #
-# Actual output format:
-#   CPU utilization for five seconds: 4%/100%; one minute: 1%; five minutes: 1%
+# Uses "show processes cpu sorted" which gives both:
+#   - Summary line: five-second total/interrupt, one-min, five-min
+#   - Per-process rows: PID, runtime, invoked, 5sec, 1min, 5min, name
+#
+# Actual output:
+#   CPU utilization for five seconds: 4%/1%; one minute: 3%; five minutes: 2%
 #    PID Runtime(ms)     Invoked      uSecs   5Sec   1Min   5Min TTY Process
 #    209         312         166       1879  2.23%  0.22%  0.07%   3 SSH Process
+#      1          24          72        333  0.00%  0.00%  0.00%   0 Chunk Manager
+#
+# TextFSM globals (Filldown, lowercased after pipeline):
+#   cpu_5_sec, cpu_5_sec_interrupt, cpu_1_min, cpu_5_min
+#
+# TextFSM per-process rows (lowercased):
+#   pid, runtime_ms, invoked, usecs, five_sec, one_min, five_min,
+#   tty, process_name
+#
+# The driver reads five_sec_total directly (no idle-based math
+# needed like Arista) and builds the process list from rows.
 
 command: "show processes cpu sorted"
 interval: 30
@@ -21,11 +35,10 @@ parsers:
     flags: DOTALL
     groups:
       five_sec_total: 1
-      five_sec_interrupts: 2
+      five_sec_interrupt: 2
       one_min: 3
       five_min: 4
 
 normalize:
-  five_sec: five_sec_total
-  one_min: one_min
-  five_min: five_min
+  five_sec_total: cpu_5_sec
+  five_sec_interrupt: cpu_5_sec_interrupt

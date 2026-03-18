@@ -1,0 +1,26 @@
+Value LOCAL_INTERFACE (\S+)
+Value NEIGHBOR_INTERFACE (\S+) 
+Value NEIGHBOR_NAME (\S+)
+Value NEIGHBOR_DESCRIPTION (.+)
+Value MGMT_ADDRESS (\S+)
+
+Start
+  ^Local\s+Intf:\s+${LOCAL_INTERFACE}
+  ^Port\s+id:\s+${NEIGHBOR_INTERFACE}
+  ^System\s+Name:\s+${NEIGHBOR_NAME}
+  ^System\s+Description: -> GetDescription
+  ^Management\s+Addresses: -> InMgmt
+  ^Total\s+entries\s+displayed -> Record
+  ^-+ -> Record
+  ^\s*
+  ^.* -> Continue
+
+GetDescription
+  ^${NEIGHBOR_DESCRIPTION} -> Start
+  ^\s* -> GetDescription
+  ^.* -> GetDescription
+
+InMgmt
+  ^\s*IP:\s+${MGMT_ADDRESS} -> Start
+  ^\s* -> Start
+  ^.* -> InMgmt

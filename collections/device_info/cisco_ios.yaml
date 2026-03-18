@@ -1,0 +1,44 @@
+# Device Info collection - Cisco IOS / IOS-XE
+#
+# Uses "show version" for device identification.
+#
+# Actual output (abbreviated):
+#   Cisco IOS Software, C3750E Software (C3750E-UNIVERSALK9-M), Version 15.2(4)E10
+#   ...
+#   ROM: Bootstrap program is C3750E boot loader
+#   ...
+#   System image file is "flash:c3750e-universalk9-mz.152-4.E10.bin"
+#   ...
+#   cisco WS-C3750X-48P (PowerPC405) processor ... with 262144K bytes of memory.
+#   ...
+#   Base ethernet MAC Address    : 00:11:22:33:44:55
+#   ...
+#   Configuration register is 0x102
+#
+# TextFSM rows (lowercased after pipeline):
+#   version, rommon, hostname, uptime, running_image,
+#   hardware, serial, config_register, mac, reload_reason
+#
+# Note: TextFSM uses Value List for HARDWARE and SERIAL which return
+# arrays. The driver's flattenDeviceInfo() collapses these to scalars.
+
+command: "show version"
+interval: 300
+
+parsers:
+  - type: textfsm
+    templates:
+      - cisco_ios_show_version.textfsm
+
+  # Fallback: regex captures key fields
+  - type: regex
+    pattern: 'Version\s+(\S+),'
+    flags: DOTALL
+    groups:
+      version: 1
+
+normalize:
+  os_version: version
+  model: hardware
+  serial_number: serial
+  image: running_image

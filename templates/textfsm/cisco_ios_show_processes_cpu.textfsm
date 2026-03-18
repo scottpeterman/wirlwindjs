@@ -1,0 +1,20 @@
+Value Filldown CPU_5_SEC (\d+)
+Value Filldown CPU_5_SEC_INTERRUPT (\d+)
+Value Filldown CPU_1_MIN (\d+)
+Value Filldown CPU_5_MIN (\d+)
+Value Required PID (\d+)
+Value RUNTIME_MS (\d+)
+Value INVOKED (\d+)
+Value USECS (\d+)
+Value FIVE_SEC (\d+\.\d+)
+Value ONE_MIN (\d+\.\d+)
+Value FIVE_MIN (\d+\.\d+)
+Value TTY (\d+)
+Value PROCESS_NAME (.+?)
+
+Start
+  ^CPU\s+utilization\s+for\s+five\s+seconds:\s+${CPU_5_SEC}%/${CPU_5_SEC_INTERRUPT}%;\s+one\s+minute:\s+${CPU_1_MIN}%;\s+five\s+minutes:\s+${CPU_5_MIN}%
+  ^\s+PID\s+Runtime -> Processes
+
+Processes
+  ^\s+${PID}\s+${RUNTIME_MS}\s+${INVOKED}\s+${USECS}\s+${FIVE_SEC}%\s+${ONE_MIN}%\s+${FIVE_MIN}%\s+${TTY}\s+${PROCESS_NAME}\s*$$ -> Record

@@ -1,36 +1,28 @@
 # Neighbors collection - Cisco IOS / IOS-XE
 #
-# Uses CDP (enabled by default on Cisco) to discover directly connected
-# neighbors. LLDP is less common on IOS and requires explicit enablement.
+# Uses "show lldp neighbors detail" for the topology graph panel.
+# LLDP field names match the Arista driver's normalize expectations.
+# Requires "lldp run" on the Cisco device.
 #
-# NTC TextFSM returns (lowercased):
-#   neighbor_name, mgmt_address, platform, neighbor_interface,
-#   local_interface, neighbor_description, capabilities
+# NTC TextFSM template: cisco_ios_show_lldp_neighbors_detail.textfsm
+# Returns (lowercased):
+#   neighbor, chassis_id, mgmt_address, neighbor_description,
+#   neighbor_interface, local_interface, capabilities, neighbor_count
 #
-# NTC template: cisco_ios_show_cdp_neighbors_detail.textfsm
+# The driver strips FQDN, normalizes platform strings, shortens
+# interface names, and cleans up capabilities for graph display.
 
-command: "show cdp neighbors detail"
+command: "show lldp neighbors detail"
 interval: 300
 
 parsers:
-  # Priority 1: NTC TextFSM
   - type: textfsm
     templates:
-      - cisco_ios_show_cdp_neighbors_detail.textfsm
+      - cisco_ios_show_lldp_neighbors_detail.textfsm
 
-  # Priority 2: regex fallback — captures core fields per neighbor block
-  - type: regex
-    pattern: 'Device ID:\s*(?P<neighbor_name>\S+).*?IP address:\s*(?P<mgmt_address>\S+).*?Platform:\s*(?P<platform>[^,]+).*?Capabilities:\s*(?P<capabilities>[^\n]+).*?Interface:\s*(?P<local_interface>\S+),\s*Port ID.*?:\s*(?P<neighbor_interface>\S+)'
-    flags: DOTALL
-
-# Map parser output → dashboard field names
-# updateNeighbors() expects: device_id, local_intf
-# Enhanced graph also uses: remote_intf, mgmt_ip, platform, capabilities
 normalize:
-  device_id: neighbor_name
+  device_id: neighbor
   local_intf: local_interface
   remote_intf: neighbor_interface
   mgmt_ip: mgmt_address
-  platform: platform
-  capabilities: capabilities
-  description: neighbor_description
+  platform: neighbor_description

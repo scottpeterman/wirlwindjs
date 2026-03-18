@@ -14,29 +14,35 @@ One command to go from zero to live telemetry:
 npm run dev -- --connect 172.17.1.128 cisco cisco123 arista_eos
 ```
 
+Or launch via environment variables (for integration with nterm-js or other tools):
+
+```bash
+WT_HOST=172.16.1.5 WT_USER=cisco WT_PASS=cisco123 WT_VENDOR=cisco_ios npm run dev
+```
+
 The dashboard populates within the first poll cycle — CPU, memory, interface throughput, LLDP neighbors, interface status table, and device logs with syslog severity highlighting.
 
 ### Dashboard Panels
 
 | Panel | Data Source | What It Shows |
 |---|---|---|
-| CPU Utilization | `show processes top once` | Gauge + 5-min average, top 20 process list |
-| Memory Utilization | `show processes top once` | Gauge + used/total/free breakdown |
+| CPU Utilization | `show processes cpu sorted` (IOS) / `show processes top once` (EOS) | Gauge + 5-min average, top 20 process list |
+| Memory Utilization | `show processes memory sorted` (IOS) / `show processes top once` (EOS) | Gauge + used/total/free breakdown |
 | Interface Throughput | `show interfaces` | Per-interface in/out bps chart, auto-scales bps → Kbps → Mbps → Gbps |
 | LLDP/CDP Neighbors | `show lldp neighbors detail` | Topology graph with hostnames, management IPs, interface labels |
 | Interface Description | `show interfaces description` | Status table with up/down/admin-down counts and descriptions |
-| Device Log | `show logging last 24 hours` | Syslog entries color-coded by severity (emergency → debug) |
-| Device Information | Connection metadata | Hostname, IP, vendor, connection status, last poll timestamp |
+| Device Log | `show logging` (IOS) / `show logging last 24 hours` (EOS) | Syslog entries color-coded by severity (emergency → debug) |
+| Device Information | `show version` + connection metadata | Hostname, IP, vendor, platform, version, serial, uptime, image |
 
 ### Vendor Support
 
 | Vendor | Driver | Live Tested | Notes |
 |---|---|---|---|
 | Arista EOS | `arista_eos` | ✅ Full dashboard | Linux `top` CPU format, LLDP neighbors |
-| Cisco IOS | `cisco_ios` | — | `show processes cpu`, CDP/LLDP |
-| Cisco IOS-XE | `cisco_ios_xe` | — | Shares Cisco IOS driver |
-| Cisco NX-OS | `cisco_nxos` | — | Shares Cisco IOS driver |
-| Juniper JunOS | `juniper_junos` | — | `show chassis routing-engine`, LLDP |
+| Cisco IOS | `cisco_ios` | ✅ Full dashboard | `show processes cpu sorted`, CDP/LLDP, tested on 7206VXR + IOSv |
+| Cisco IOS-XE | `cisco_ios_xe` | ✅ Shares IOS driver | Same CLI format, same templates |
+| Cisco NX-OS | `cisco_nxos` | — | Extends IOS driver, `show system resources` for memory |
+| Juniper JunOS | `juniper_junos` | ✅ Full dashboard | `show chassis routing-engine`, LLDP |
 
 Adding a vendor: extend `BaseDriver`, override `postProcess`, call `registerDriver()`. The collection YAMLs and TextFSM templates handle the rest.
 
@@ -46,7 +52,7 @@ Adding a vendor: extend `BaseDriver`, override `postProcess`, call `registerDriv
 # Install dependencies
 npm install
 
-# Connect to a device and start polling
+# Connect to a device and start polling (CLI args)
 npm run dev -- --connect <host> <user> <pass> <vendor>
 
 # Examples
@@ -54,9 +60,26 @@ npm run dev -- --connect 10.0.0.1 admin secret arista_eos
 npm run dev -- --connect 10.0.0.1 admin secret cisco_ios --legacy   # old ciphers
 npm run dev -- --connect 10.0.0.1 admin secret juniper_junos --port 830
 
+# Connect via environment variables (for nterm-js integration)
+WT_HOST=10.0.0.1 WT_USER=admin WT_PASS=secret WT_VENDOR=cisco_ios npm run dev
+WT_HOST=10.0.0.1 WT_USER=admin WT_PASS=secret WT_VENDOR=cisco_ios WT_LEGACY=1 npm run dev
+
 # Launch without auto-connect (demo mode)
 npm run dev
 ```
+
+### Environment Variables
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `WT_HOST` | Yes | — | Device hostname or IP |
+| `WT_USER` | Yes | — | SSH username |
+| `WT_PASS` | Yes | — | SSH password |
+| `WT_VENDOR` | Yes | — | Vendor type (see vendor table) |
+| `WT_PORT` | No | `22` | SSH port |
+| `WT_LEGACY` | No | `false` | Set to `1` or `true` for legacy cipher mode |
+
+CLI args take precedence over environment variables. Environment variables are used when `--connect` is absent.
 
 ### Build & Package
 
@@ -149,9 +172,9 @@ stateStore.update()       In-memory state + ring buffers → IPC → dashboard
 │  │  TextFSM → regex → pass   │  │  base.ts + logParsers  │ │
 │  │  Uses tfsmjs               │  │  arista_eos.ts         │ │
 │  └────────────────────────────┘  │  cisco_ios.ts          │ │
-│                                  │  juniper_junos.ts      │ │
-│  ┌────────────────────────────┐  └────────────────────────┘ │
-│  │  collectionLoader.ts      │                               │
+│                                  │  cisco_nxos.ts         │ │
+│  ┌────────────────────────────┐  │  juniper_junos.ts      │ │
+│  │  collectionLoader.ts      │  └────────────────────────┘ │
 │  │  YAML → normalizedDef     │                               │
 │  └────────────────────────────┘                               │
 │  ┌────────────────────────────────────────────────────────┐  │
@@ -166,39 +189,42 @@ stateStore.update()       In-memory state + ring buffers → IPC → dashboard
 Collections define what to poll, how to parse, and how to normalize. Each collection is a YAML file per vendor stored in `collections/<name>/<vendor>.yaml`. The Python YAML format is auto-normalized to the TypeScript interface at load time — same files work in both projects.
 
 ```yaml
-# collections/cpu/arista_eos.yaml
-command: "show processes top once"
+# collections/cpu/cisco_ios.yaml
+command: "show processes cpu sorted"
 interval: 30
 
 parsers:
   - type: textfsm
     templates:
-      - arista_eos_show_processes_top_once.textfsm
+      - cisco_ios_show_processes_cpu.textfsm
   - type: regex
-    pattern: '%Cpu\(s\):\s*(\S+)\s+us,\s*(\S+)\s+sy,\s*\S+\s+ni,\s*(\S+)\s+id'
+    pattern: 'CPU utilization for five seconds:\s+(\d+)%/(\d+)%;\s+one minute:\s+(\d+)%;\s+five minutes:\s+(\d+)%'
+    flags: DOTALL
     groups:
-      user_pct: 1
-      system_pct: 2
-      idle_pct: 3
+      five_sec_total: 1
+      five_sec_interrupt: 2
+      one_min: 3
+      five_min: 4
 
 normalize:
-  cpu_idle: global_cpu_percent_idle
-  cpu_usr: global_cpu_percent_user
+  five_sec_total: cpu_5_sec
+  five_sec_interrupt: cpu_5_sec_interrupt
 ```
 
 The parser chain tries each parser in priority order. If TextFSM fails, it falls back to regex. If regex fails, raw output passes through. The `normalize` map renames vendor-specific field names to the canonical names drivers and the dashboard expect.
 
 ### Built-in Collections
 
-| Collection | Command (Arista) | Parser | Interval |
-|---|---|---|---|
-| `cpu` | `show processes top once` | TextFSM + regex | 30s |
-| `memory` | `show processes top once` | TextFSM + regex | 30s |
-| `interfaces` | `show interfaces description` | TextFSM | 60s |
-| `interface_detail` | `show interfaces` | TextFSM | 60s |
-| `neighbors` | `show lldp neighbors detail` | TextFSM | 300s |
-| `bgp_summary` | `show ip bgp summary` | TextFSM | 120s |
-| `log` | `show logging last 24 hours` | Driver (raw) | 30s |
+| Collection | Command (Cisco IOS) | Command (Arista EOS) | Parser | Interval |
+|---|---|---|---|---|
+| `cpu` | `show processes cpu sorted` | `show processes top once` | TextFSM + regex | 30s |
+| `memory` | `show processes memory sorted` | `show processes top once` | TextFSM + regex | 30s |
+| `interfaces` | `show interfaces description` | `show interfaces description` | TextFSM | 60s |
+| `interface_detail` | `show interfaces` | `show interfaces` | TextFSM | 60s |
+| `neighbors` | `show lldp neighbors detail` | `show lldp neighbors detail` | TextFSM | 300s |
+| `bgp_summary` | `show ip bgp summary` | `show ip bgp summary` | TextFSM | 120s |
+| `log` | `show logging` | `show logging last 24 hours` | Driver (raw) | 30s |
+| `device_info` | `show version` | `show version` | TextFSM | 300s |
 
 ## Workspace Overlay
 
@@ -210,12 +236,12 @@ mkdir -p ~/.wirlwind/workspace/templates/textfsm
 mkdir -p ~/.wirlwind/workspace/collections
 
 # Override a broken template
-cp templates/textfsm/arista_eos_show_interfaces.textfsm \
+cp templates/textfsm/cisco_ios_show_interfaces.textfsm \
    ~/.wirlwind/workspace/templates/textfsm/
-vi ~/.wirlwind/workspace/templates/textfsm/arista_eos_show_interfaces.textfsm
+vi ~/.wirlwind/workspace/templates/textfsm/cisco_ios_show_interfaces.textfsm
 
 # Restart — workspace version loads instead of built-in
-npm run dev -- --connect 172.17.1.128 cisco cisco123 arista_eos
+npm run dev -- --connect 172.16.1.2 cisco cisco123 cisco_ios
 ```
 
 Resolution order: **workspace first → built-in fallback**. Only include files you want to override.
@@ -225,7 +251,7 @@ The log confirms overrides:
 ```
 Workspace (default): /home/user/.wirlwind/workspace
 Workspace overrides: 1 templates, 0 collections
-[workspace] template: arista_eos_show_interfaces.textfsm
+[workspace] template: cisco_ios_show_interfaces.textfsm
 ```
 
 Custom workspace path via `~/.wirlwind/config.json`:
@@ -243,7 +269,8 @@ drivers/
 ├── base.ts              # BaseDriver, registry, shared transforms
 ├── logParsers.ts        # Vendor-specific syslog parsers
 ├── arista_eos.ts        # Arista EOS
-├── cisco_ios.ts         # Cisco IOS/IOS-XE/NX-OS
+├── cisco_ios.ts         # Cisco IOS/IOS-XE (registered for both)
+├── cisco_nxos.ts        # Cisco NX-OS (extends CiscoIOSDriver)
 └── juniper_junos.ts     # Juniper JunOS
 ```
 
@@ -251,11 +278,11 @@ drivers/
 
 | Transform | Example |
 |---|---|
-| CPU normalization | Arista `idle_pct: 94` → `five_sec_total: 6` |
-| Memory calculation | `total_kb` - `free_kb` → `used_pct: 60.6` |
+| CPU normalization | Arista `idle_pct: 94` → `five_sec_total: 6`; Cisco reads `cpu_5_sec` directly |
+| Memory calculation | IOS `processor_total` - `processor_free` → `used_pct: 14.5`; NX-OS KB → bytes conversion |
 | Rate conversion | `"23.5 kbps"` → `input_rate_bps: 23500` |
-| Neighbor normalization | `neighbor_name` → `device_id`, FQDN stripping, platform extraction |
-| Interface abbreviation | `Ethernet1` → `Et1`, `Port-Channel1` → `Po1` |
+| Neighbor normalization | `neighbor_name` → `device_id`, FQDN stripping, platform extraction, serial cleanup |
+| Interface abbreviation | `GigabitEthernet0/1` → `Gi0/1`, `Port-Channel1` → `Po1` |
 | Log parsing | Raw syslog → `{ timestamp, facility, severity, mnemonic, message }` |
 | BGP state normalization | `state_pfx: "42"` → `state: "Established", prefixes_rcvd: 42` |
 
@@ -264,7 +291,6 @@ drivers/
 ```typescript
 // drivers/my_vendor.ts
 import { BaseDriver, registerDriver } from './base';
-import { parseGenericLog } from './logParsers';
 
 export class MyVendorDriver extends BaseDriver {
   postConnectCommands = ['set cli screen-length 0'];
@@ -305,7 +331,7 @@ wirlwind-js/
 │   │   └── emulation.ts              # NetEmulate transparent redirect
 │   ├── wirlwind/
 │   │   ├── main/
-│   │   │   ├── main.ts                # Electron entry + CLI arg parsing
+│   │   │   ├── main.ts                # Electron entry + CLI/env arg parsing
 │   │   │   ├── preload.ts             # contextBridge IPC API
 │   │   │   ├── bridge.ts              # TelemetryBridge
 │   │   │   ├── pollEngine.ts          # Poll loop + pipeline orchestration
@@ -320,7 +346,8 @@ wirlwind-js/
 │   │   │       ├── base.ts            # BaseDriver, registry, shared transforms
 │   │   │       ├── logParsers.ts      # Vendor-specific syslog parsers
 │   │   │       ├── arista_eos.ts      # Arista EOS driver
-│   │   │       ├── cisco_ios.ts       # Cisco IOS/IOS-XE/NX-OS driver
+│   │   │       ├── cisco_ios.ts       # Cisco IOS/IOS-XE driver
+│   │   │       ├── cisco_nxos.ts      # Cisco NX-OS driver
 │   │   │       └── juniper_junos.ts   # Juniper JunOS driver
 │   │   ├── renderer/
 │   │   │   └── index.html             # ECharts dashboard
@@ -330,8 +357,8 @@ wirlwind-js/
 │       ├── test-parse.ts              # Offline: 32 parser tests
 │       ├── test-ssh.ts                # Live: SSH connect/command
 │       └── test-pipeline.ts           # Live: full pipeline test
-├── collections/                       # 7 collections × 4 vendors (YAML)
-├── templates/textfsm/                 # 14 TextFSM templates
+├── collections/                       # 8 collections × 4 vendors (YAML)
+├── templates/textfsm/                 # 21 TextFSM templates
 └── tools/
     └── tfsm-tester.html               # Standalone TextFSM template tester
 ```
@@ -382,6 +409,7 @@ This is a TypeScript port of the PyQt6-based Wirlwind Telemetry. The data flow, 
 | `bridge.py` (slots/signals) | `bridge.ts` (IPC handle/send) |
 | `drivers/__init__.py` | `drivers/base.ts` |
 | `drivers/arista_eos.py` | `drivers/arista_eos.ts` |
+| `drivers/cisco_ios.py` | `drivers/cisco_ios.ts` + `cisco_nxos.ts` |
 
 ## Version Alignment
 

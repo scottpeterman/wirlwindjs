@@ -88,49 +88,93 @@ function createWindow(): void {
 // ─── CLI Argument Parsing ─────────────────────────────────────
 
 /**
- * Parse --connect CLI arguments for headless/test auto-connect.
+ * Parse connection target from CLI arguments or environment variables.
+ * CLI args take precedence over env vars.
  *
- * Usage:
+ * CLI usage:
  *   electron . --connect <host> <user> <pass> <vendor> [--legacy] [--port 22]
  *
+ * Environment variables (used when --connect is absent):
+ *   WT_HOST     - Device hostname or IP (required)
+ *   WT_USER     - SSH username (required)
+ *   WT_PASS     - SSH password (required)
+ *   WT_VENDOR   - Vendor type (required)
+ *   WT_PORT     - SSH port (default: 22)
+ *   WT_LEGACY   - Set to "1" or "true" for legacy cipher mode
+ *
  * Examples:
+ *   # CLI
  *   electron . --connect 172.17.1.128 cisco cisco123 arista_eos
  *   electron . --connect 10.0.0.1 admin admin123 cisco_ios --legacy
- *   electron . --connect 10.0.0.1 admin admin123 juniper_junos --port 830
+ *
+ *   # Environment (e.g., launched from nterm-js)
+ *   WT_HOST=172.17.1.128 WT_USER=cisco WT_PASS=cisco123 WT_VENDOR=arista_eos electron .
  *
  * Supported vendors: cisco_ios, cisco_ios_xe, cisco_nxos, arista_eos, juniper_junos
  */
 function parseCLIConnect(): DeviceTarget | null {
   const args = process.argv;
-  const idx = args.indexOf('--connect');
-  if (idx === -1) return null;
+  const env = process.env;
+  const validVendors = ['cisco_ios', 'cisco_ios_xe', 'cisco_nxos', 'arista_eos', 'juniper_junos'];
 
-  // Need at least 4 positional args after --connect: host user pass vendor
-  const positional = args.slice(idx + 1).filter(a => !a.startsWith('--'));
-  if (positional.length < 4) {
-    log.warn('--connect requires: <host> <user> <pass> <vendor>');
-    log.warn('  Vendors: cisco_ios, cisco_ios_xe, cisco_nxos, arista_eos, juniper_junos');
+  let host: string | undefined;
+  let username: string | undefined;
+  let password: string | undefined;
+  let vendor: string | undefined;
+  let port = 22;
+  let legacyMode = false;
+
+  // ── Try CLI args first ─────────────────────────────────
+  const idx = args.indexOf('--connect');
+  if (idx !== -1) {
+    const positional = args.slice(idx + 1).filter(a => !a.startsWith('--'));
+    if (positional.length < 4) {
+      log.warn('--connect requires: <host> <user> <pass> <vendor>');
+      log.warn('  Vendors: ' + validVendors.join(', '));
+      return null;
+    }
+
+    [host, username, password, vendor] = positional;
+    legacyMode = args.includes('--legacy');
+
+    const portIdx = args.indexOf('--port');
+    if (portIdx !== -1 && args[portIdx + 1]) {
+      const p = parseInt(args[portIdx + 1], 10);
+      if (!isNaN(p)) port = p;
+    }
+
+    log.info(`CLI connect: ${host}:${port} user=${username} vendor=${vendor} legacy=${legacyMode}`);
+  }
+
+  // ── Fall back to env vars ──────────────────────────────
+  if (!host && env.WT_HOST) {
+    host = env.WT_HOST;
+    username = env.WT_USER;
+    password = env.WT_PASS;
+    vendor = env.WT_VENDOR;
+
+    if (env.WT_PORT) {
+      const p = parseInt(env.WT_PORT, 10);
+      if (!isNaN(p)) port = p;
+    }
+
+    legacyMode = env.WT_LEGACY === '1' || env.WT_LEGACY === 'true';
+
+    log.info(`ENV connect: ${host}:${port} user=${username} vendor=${vendor} legacy=${legacyMode}`);
+  }
+
+  // ── Validate ───────────────────────────────────────────
+  if (!host) return null;
+
+  if (!username || !password || !vendor) {
+    log.warn('Connection requires host, username, password, and vendor');
     return null;
   }
 
-  const [host, username, password, vendor] = positional;
-
-  const validVendors = ['cisco_ios', 'cisco_ios_xe', 'cisco_nxos', 'arista_eos', 'juniper_junos'];
   if (!validVendors.includes(vendor)) {
     log.warn(`Unknown vendor '${vendor}'. Valid: ${validVendors.join(', ')}`);
     return null;
   }
-
-  const legacyMode = args.includes('--legacy');
-
-  let port = 22;
-  const portIdx = args.indexOf('--port');
-  if (portIdx !== -1 && args[portIdx + 1]) {
-    const p = parseInt(args[portIdx + 1], 10);
-    if (!isNaN(p)) port = p;
-  }
-
-  log.info(`CLI connect: ${host}:${port} user=${username} vendor=${vendor} legacy=${legacyMode}`);
 
   return {
     host,

@@ -1,41 +1,46 @@
-# CPU collection - Cisco IOS / IOS-XE
+# Memory collection - Cisco IOS / IOS-XE
 #
-# NOTE: Do NOT use '| exclude 0.00%' in the command. On quiet devices,
-#       it strips all process rows, TextFSM's Required PROCESS_PID never
-#       fires, returns zero rows, and parsing falls to regex (summary only,
-#       no processes). Filtering is handled in post-processing instead.
+# Uses "show processes memory sorted" which gives:
+#   - Processor pool summary: Total, Used, Free
+#   - I/O pool summary: Total, Used, Free
+#   - Per-process rows: PID, TTY, Allocated, Freed, Holding, Getbufs, Retbufs, Process
 #
-# NTC TextFSM returns (lowercased):
-#   Row 0+: cpu_usage_5_sec, cpu_interruption_5_sec, cpu_usage_1_min,
-#           cpu_usage_5_min, process_pid, process_name,
-#           process_cpu_usage_5_sec, process_cpu_usage_1_min, ...
+# Actual output:
+#   Processor Pool Total:  873977468  Used:  335498564  Free:  538478904
+#   I/O Pool Total:         33554432  Used:    1785972  Free:   31768460
+#    PID TTY  Allocated      Freed    Holding    Getbufs    Retbufs Process
+#      0   0  530498572  198498424  186216024          0          0 *Init*
+#      1   0      19640      19236       8408          0          0 Chunk Manager
 #
-# NTC template: cisco_ios_show_processes_cpu.textfsm
-#   (no _sorted variant exists in ntc-templates)
+# TextFSM globals (Filldown, lowercased):
+#   processor_total, processor_used, processor_free,
+#   io_total, io_used, io_free
+#
+# TextFSM per-process rows (lowercased):
+#   process_id, tty, allocated, freed, holding, getbufs, retbufs, process_name
+#
+# The driver computes used_pct from processor pool values.
+# Per-process holding is cross-referenced into CPU process list
+# via mergeMemoryIntoProcesses().
 
-command: "show processes cpu sorted"
+command: "show processes memory sorted"
 interval: 30
 
 parsers:
-  # Priority 1: ntc-templates TextFSM (returns summary + per-process rows)
   - type: textfsm
     templates:
-      - cisco_ios_show_processes_cpu.textfsm
+      - cisco_ios_show_processes_memory_sorted.textfsm
 
-  # Priority 2: regex - captures summary line only (no processes)
-  # Group names aligned with TextFSM output for unified normalize map
+  # Fallback: regex captures the processor pool summary line
   - type: regex
-    pattern: 'CPU utilization for five seconds:\s+(\d+)%/(\d+)%;\s+one minute:\s+(\d+)%;\s+five minutes:\s+(\d+)%'
+    pattern: 'Processor Pool Total:\s+(\d+)\s+Used:\s+(\d+)\s+Free:\s+(\d+)'
     flags: DOTALL
     groups:
-      cpu_usage_5_sec: 1
-      cpu_interruption_5_sec: 2
-      cpu_usage_1_min: 3
-      cpu_usage_5_min: 4
+      processor_total: 1
+      processor_used: 2
+      processor_free: 3
 
-# Map parser output → canonical schema
-# Works for both TextFSM and regex (same field names)
 normalize:
-  five_sec: cpu_usage_5_sec
-  one_min: cpu_usage_1_min
-  five_min: cpu_usage_5_min
+  total_bytes: processor_total
+  used_bytes: processor_used
+  free_bytes: processor_free
